@@ -20,8 +20,9 @@ export interface Room {
   name: string;
 }
 
-export interface DaySchedule {
-  date: string;
-  rooms: Room[];
-  slotsByRoom: Record<string, TimeSlot[]>;
+export interface RoomSchedule {
+  roomId: string;
+  roomName: string;
+  dates: string[];
+  slotsByDate: Record<string, TimeSlot[]>;
 }

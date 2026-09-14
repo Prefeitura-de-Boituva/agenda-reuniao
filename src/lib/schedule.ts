@@ -1,8 +1,9 @@
-import type { Booking, DaySchedule, Room, SlotStatus, TimeSlot } from "@/types/schedule";
+import type { Booking, Room, RoomSchedule, SlotStatus, TimeSlot } from "@/types/schedule";
 
 export const OPENING_HOUR = 8;
 export const CLOSING_HOUR = 17;
 export const SLOT_MINUTES = 30;
+export const WEEKDAY_COUNT = 5;
 
 export function generateTimeSlots(): Array<{ startTime: string; endTime: string }> {
   const slots: Array<{ startTime: string; endTime: string }> = [];
@@ -54,6 +55,14 @@ export function formatDate(date: Date): string {
   }).format(date);
 }
 
+export function formatDateShort(date: Date): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  }).format(date);
+}
+
 export function toISODate(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -83,6 +92,25 @@ export function getPreviousWeekday(date: Date): Date {
   return previous;
 }
 
+export function getWeekStart(date: Date): Date {
+  const start = new Date(date);
+  if (start.getDay() === 0) {
+    start.setDate(start.getDate() + 1);
+    return start;
+  }
+  const daysSinceMonday = start.getDay() - 1;
+  start.setDate(start.getDate() - daysSinceMonday);
+  return start;
+}
+
+export function getWeekDates(startDate: Date): Date[] {
+  const dates: Date[] = [];
+  for (let i = 0; i < WEEKDAY_COUNT; i++) {
+    dates.push(shiftDate(startDate, i));
+  }
+  return dates;
+}
+
 export function getBookingStatus(
   date: string,
   startTime: string,
@@ -95,16 +123,25 @@ export function getBookingStatus(
   return { status: "available" };
 }
 
-export function buildDaySchedule(date: string, rooms: Room[], bookings: Booking[]): DaySchedule {
+export function buildRoomSchedule(
+  room: Room,
+  startDate: Date,
+  getBookingsForDate: (date: string) => Booking[]
+): RoomSchedule {
   const rawSlots = generateTimeSlots();
-  const slotsByRoom: Record<string, TimeSlot[]> = {};
+  const weekDates = getWeekDates(getWeekStart(startDate));
+  const dates = weekDates.map(toISODate);
+  const slotsByDate: Record<string, TimeSlot[]> = {};
 
-  for (const room of rooms) {
-    slotsByRoom[room.id] = rawSlots.map((slot) => {
+  for (const date of dates) {
+    const bookings = getBookingsForDate(date);
+    slotsByDate[date] = rawSlots.map((slot) => {
       const { status, booking } = getBookingStatus(date, slot.startTime, slot.endTime, bookings);
       return { ...slot, status, booking };
     });
   }
 
-  return { date, rooms, slotsByRoom };
+  return { roomId: room.id, roomName: room.name, dates, slotsByDate };
 }
+
+export type { RoomSchedule, TimeSlot };

@@ -2,78 +2,94 @@
 
 import { useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import type { DaySchedule } from "@/types/schedule";
+import type { RoomSchedule } from "@/types/schedule";
 import {
-  buildDaySchedule,
-  formatDate,
-  getNextWeekday,
-  getPreviousWeekday,
+  buildRoomSchedule,
+  formatDateShort,
+  getWeekDates,
+  getWeekStart,
+  parseDate,
+  shiftDate,
   toISODate,
 } from "@/lib/schedule";
 import { ROOMS, getMockBookings } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 function ScheduleGridContent() {
-  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+  const [selectedRoomId, setSelectedRoomId] = useState<string>(ROOMS[0].id);
+  const [weekStart, setWeekStart] = useState<Date>(() => {
     const today = new Date();
-    return today.getDay() === 0 || today.getDay() === 6 ? getNextWeekday(today) : today;
+    return getWeekStart(today);
   });
 
-  const schedule: DaySchedule = useMemo(() => {
-    const date = toISODate(selectedDate);
-    const bookings = getMockBookings(date);
-    return buildDaySchedule(date, ROOMS, bookings);
-  }, [selectedDate]);
+  const selectedRoom = ROOMS.find((room) => room.id === selectedRoomId) ?? ROOMS[0];
 
-  const slotRows = schedule.rooms[0]
-    ? schedule.slotsByRoom[schedule.rooms[0].id]
-    : [];
+  const schedule: RoomSchedule = useMemo(
+    () => buildRoomSchedule(selectedRoom, weekStart, (date) => getMockBookings(date)),
+    [selectedRoom, weekStart]
+  );
 
-  const today = new Date();
-  const isToday =
-    toISODate(selectedDate) === toISODate(today);
+  const weekDates = getWeekDates(weekStart);
+  const todayISO = toISODate(new Date());
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <CalendarDays className="size-5 text-primary" />
-          <h1 className="text-h3 font-semibold text-neutral-900">Grade de Horários</h1>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <CalendarDays className="size-5 text-primary" />
+            <h1 className="text-h3 font-semibold text-neutral-900">Grade de Horários</h1>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setWeekStart((w) => shiftDate(w, -7))}
+              className="rounded-lg border border-neutral-300 bg-white p-2 text-neutral-600 hover:bg-neutral-50 transition-colors duration-150"
+              aria-label="Semana anterior"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <div className="px-3 py-2 text-caption font-medium text-neutral-700">
+              {weekDates[0].toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+              {" – "}
+              {weekDates[weekDates.length - 1].toLocaleDateString("pt-BR", {
+                day: "2-digit",
+                month: "2-digit",
+              })}
+            </div>
+            <button
+              onClick={() => setWeekStart((w) => shiftDate(w, 7))}
+              className="rounded-lg border border-neutral-300 bg-white p-2 text-neutral-600 hover:bg-neutral-50 transition-colors duration-150"
+              aria-label="Próxima semana"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+            {toISODate(weekStart) !== toISODate(getWeekStart(new Date())) && (
+              <button
+                onClick={() => setWeekStart(getWeekStart(new Date()))}
+                className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-caption font-medium text-primary-700 hover:bg-primary-100 transition-colors duration-150"
+              >
+                Hoje
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setSelectedDate((d) => getPreviousWeekday(d))}
-            className="rounded-lg border border-neutral-300 bg-white p-2 text-neutral-600 hover:bg-neutral-50 transition-colors duration-150"
-            aria-label="Dia anterior"
-          >
-            <ChevronLeft className="size-4" />
-          </button>
-          <div className="px-3 py-2 text-caption font-medium capitalize text-neutral-700">
-            {formatDate(selectedDate)}
-          </div>
-          <button
-            onClick={() => setSelectedDate((d) => getNextWeekday(d))}
-            className="rounded-lg border border-neutral-300 bg-white p-2 text-neutral-600 hover:bg-neutral-50 transition-colors duration-150"
-            aria-label="Próximo dia"
-          >
-            <ChevronRight className="size-4" />
-          </button>
-          {!isToday && (
+        <div className="flex flex-wrap items-center gap-2">
+          {ROOMS.map((room) => (
             <button
-              onClick={() => {
-                const todayDate = new Date();
-                setSelectedDate(
-                  todayDate.getDay() === 0 || todayDate.getDay() === 6
-                    ? getNextWeekday(todayDate)
-                    : todayDate
-                );
-              }}
-              className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-caption font-medium text-primary-700 hover:bg-primary-100 transition-colors duration-150"
+              key={room.id}
+              onClick={() => setSelectedRoomId(room.id)}
+              className={cn(
+                "rounded-lg px-4 py-2 text-caption font-medium transition-colors duration-150",
+                room.id === selectedRoomId
+                  ? "bg-primary-500 text-white shadow-card"
+                  : "border border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50"
+              )}
             >
-              Hoje
+              {room.name}
             </button>
-          )}
+          ))}
         </div>
       </div>
 
@@ -84,36 +100,40 @@ function ScheduleGridContent() {
               <th className="sticky left-0 bg-white px-4 py-3 text-left text-caption font-semibold text-neutral-500">
                 Horário
               </th>
-              {schedule.rooms.map((room) => (
-                <th
-                  key={room.id}
-                  className="px-4 py-3 text-left text-caption font-semibold text-neutral-700"
-                >
-                  {room.name}
-                </th>
-              ))}
+              {schedule.dates.map((date) => {
+                const dayStart = parseDate(date);
+                const isToday = date === todayISO;
+                return (
+                  <th
+                    key={date}
+                    className={cn(
+                      "px-4 py-3 text-left text-caption font-semibold",
+                      isToday ? "text-primary" : "text-neutral-700"
+                    )}
+                  >
+                    <span className="capitalize">{formatDateShort(dayStart)}</span>
+                    {isToday && <span className="ml-1 text-tiny font-normal">(hoje)</span>}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
-            {slotRows.map((_, index) => {
-              const startTime = slotRows[index].startTime;
-              const endTime = slotRows[index].endTime;
+            {schedule.slotsByDate[schedule.dates[0]].map((_, index) => {
+              const startTime = schedule.slotsByDate[schedule.dates[0]][index].startTime;
+              const endTime = schedule.slotsByDate[schedule.dates[0]][index].endTime;
               return (
-                <tr
-                  key={startTime}
-                  className="border-b border-neutral-100 last:border-b-0"
-                >
+                <tr key={startTime} className="border-b border-neutral-100 last:border-b-0">
                   <td className="sticky left-0 bg-white px-4 py-2 whitespace-nowrap text-body tabular-nums text-neutral-600">
                     {startTime} – {endTime}
                   </td>
-                  {schedule.rooms.map((room) => {
-                    const slot = schedule.slotsByRoom[room.id][index];
-                    const isBookingStart = slot.booking?.startTime === startTime;
+                  {schedule.dates.map((date) => {
+                    const slot = schedule.slotsByDate[date][index];
                     return (
-                      <td key={room.id} className="px-2 py-1.5">
+                      <td key={date} className="px-2 py-1.5">
                         <div
                           className={cn(
-                            "flex h-10 items-center rounded-lg border px-3 text-caption",
+                            "flex h-12 items-center rounded-lg border px-2 text-caption",
                             slot.status === "available" &&
                               "border-success-200 bg-success-50 text-success-700",
                             slot.status === "past" &&
@@ -121,24 +141,14 @@ function ScheduleGridContent() {
                             slot.status === "booked" &&
                               "border-danger-200 bg-danger-50 text-danger-700"
                           )}
-                          title={
-                            isBookingStart && slot.booking
-                              ? `${slot.booking.name} · ${slot.booking.department}`
-                              : undefined
-                          }
                         >
-                          {slot.status === "booked" && isBookingStart && slot.booking && (
-                            <span className="truncate">
-                              {slot.booking.name}
-                              <span className="hidden text-danger-700/70 lg:inline">
-                                {" "}
-                                · {slot.booking.department}
-                              </span>
+                          {slot.status === "booked" && slot.booking && (
+                            <span className="flex min-w-0 flex-col leading-tight">
+                              <span className="truncate font-medium">{slot.booking.name}</span>
+                              <span className="truncate">{slot.booking.department}</span>
                             </span>
                           )}
-                          {slot.status === "available" && (
-                            <span className="mx-auto">Disponível</span>
-                          )}
+                          {slot.status === "available" && <span className="mx-auto">—</span>}
                           {slot.status === "past" && <span className="mx-auto">—</span>}
                         </div>
                       </td>
@@ -153,15 +163,15 @@ function ScheduleGridContent() {
 
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-1.5">
-          <span className="size-3 rounded-sm border border-success-200 bg-success-50" />
+          <span className="size-3 rounded-full bg-success-500" />
           <span className="text-tiny text-neutral-600">Disponível</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="size-3 rounded-sm border border-danger-200 bg-danger-50" />
+          <span className="size-3 rounded-full bg-danger-500" />
           <span className="text-tiny text-neutral-600">Ocupado</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="size-3 rounded-sm border border-neutral-200 bg-neutral-100" />
+          <span className="size-3 rounded-full bg-neutral-400" />
           <span className="text-tiny text-neutral-600">Horário já passado</span>
         </div>
       </div>
