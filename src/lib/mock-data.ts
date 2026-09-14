@@ -5,8 +5,6 @@ export const ROOMS: Room[] = [
   { id: "sala-azul", name: "Sala Azul" },
   { id: "sala-verde", name: "Sala Verde" },
   { id: "sala-amarela", name: "Sala Amarela" },
-  { id: "sala-vermelha", name: "Sala Vermelha" },
-  { id: "sala-branca", name: "Sala Branca" },
 ];
 
 const MOCK_NAMES = [
@@ -25,9 +23,6 @@ const MOCK_BLOCKS: Array<{ room: string; startOffset: number; length: number }> 
   { room: "sala-verde", startOffset: 12, length: 4 },
   { room: "sala-amarela", startOffset: 2, length: 2 },
   { room: "sala-amarela", startOffset: 9, length: 1 },
-  { room: "sala-vermelha", startOffset: 7, length: 2 },
-  { room: "sala-vermelha", startOffset: 15, length: 2 },
-  { room: "sala-branca", startOffset: 5, length: 3 },
 ];
 
 export function getMockBookings(date: string): Booking[] {

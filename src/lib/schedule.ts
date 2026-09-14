@@ -11,7 +11,7 @@ export function generateTimeSlots(): Array<{ startTime: string; endTime: string 
   for (let hour = OPENING_HOUR; hour < CLOSING_HOUR; hour++) {
     for (let minutes = 0; minutes < 60; minutes += SLOT_MINUTES) {
       const start = `${String(hour).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-      const endMinutes = minutes + SLOT_MINUTES;
+      const endMinutes = minutes === 0 ? minutes + 30 : minutes + 29;
       const end = `${String(hour).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}`;
       slots.push({ startTime: start, endTime: end });
     }
