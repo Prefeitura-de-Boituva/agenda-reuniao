@@ -1,0 +1,33 @@
+// use prisma-8
+
+enum Departamento {
+  @@type("pg/text@1")
+  CHEFIA_GABINETE = "Chefia de Gabinete"
+  SEC_GOVERNO_PLANEJAMENTO = "Secretaria Municipal Governo e Planejamento Estratégico"
+  SEC_ASSUNTOS_JURIDICOS = "Secretaria Municipal de Assuntos Jurídicos"
+  SEC_ADMINISTRACAO = "Secretaria Municipal Administração, Gestão e Equipe Públicos"
+  SEC_FAZENDA = "Secretaria Municipal Fazenda, Desenvolvimento Econômico e Finanças"
+  SEC_TURISMO = "Secretaria Municipal Turismo, Juventude e Empreendedorismo"
+  SEC_OBRAS_PUBLICAS = "Secretaria Municipal Obras Públicas"
+  SEC_PLANEJAMENTO_URBANO = "Secretaria Municipal Planejamento Urbano e Habitação"
+}
+
+enum Sala {
+  @@type("pg/text@1")
+  SALA_1 = "Sala 1"
+  SALA_2 = "Sala 2"
+  SALA_3 = "Sala 3"
+}
+
+model Agendamento {
+  id           String       @id @default(uuid())
+  nome         String
+  departamento Departamento
+  sala         Sala
+  data         DateString
+  horaInicio   VarChar(5)
+  horaFim      VarChar(5)
+  criadoEm     TimestamptzString @default(now())
+
+  @@unique([sala, data, horaInicio])
+}

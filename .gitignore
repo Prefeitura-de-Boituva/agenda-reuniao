@@ -42,3 +42,6 @@ next-env.d.ts
 
 # docs locais (não versionadas)
 /docs
+node_modules/
+dist/
+.env
