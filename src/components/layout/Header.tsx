@@ -34,10 +34,10 @@ export function Header({ className }: HeaderProps) {
             Início
           </Link>
           <Link
-            href="#"
+            href="/grade"
             className="text-caption font-medium text-neutral-600 hover:text-primary-700 transition-colors duration-150"
           >
-            Minhas Reuniões
+            Grade de Horários
           </Link>
         </nav>
 
@@ -59,10 +59,10 @@ export function Header({ className }: HeaderProps) {
             Início
           </Link>
           <Link
-            href="#"
+            href="/grade"
             className="block rounded-lg px-3 py-2 text-caption font-medium text-neutral-700 hover:bg-neutral-50"
           >
-            Minhas Reuniões
+            Grade de Horários
           </Link>
         </nav>
       )}
