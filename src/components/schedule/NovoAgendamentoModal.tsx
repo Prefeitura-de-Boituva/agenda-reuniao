@@ -65,6 +65,10 @@ export interface NovoAgendamentoModalProps {
    */
   salaInicial?: string;
   dataInicial?: string;
+  /**
+   * Mensagem de erro externa (ex.: conflito de horário)
+   */
+    externalError?: string | null;
 }
 
 export function NovoAgendamentoModal({
@@ -73,6 +77,7 @@ export function NovoAgendamentoModal({
   onConfirm,
   salaInicial,
   dataInicial,
+  externalError,
 }: NovoAgendamentoModalProps) {
   // ------------------------------- state -----------------------------------
   const today = new Date().toISOString().split("T")[0];
@@ -81,7 +86,7 @@ export function NovoAgendamentoModal({
   const [inicio, setInicio] = useState(SLOTS_INICIO[0]);
   const [fim, setFim] = useState(SLOTS_FIM[0]);
   const [nome, setNome] = useState("");
-  const [departamento, setDepartamento] = useState(DEPARTAMENTOS[0]);
+  const [departamento, setDepartamento] = useState("");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -194,8 +199,8 @@ export function NovoAgendamentoModal({
               className="flex h-10 w-full rounded-lg border bg-white px-3 text-body text-neutral-900 focus:outline-none focus:ring-2 focus:border-primary focus:ring-primary-100"
               value={departamento}
               onChange={(e) => setDepartamento(e.target.value)}
-              required
             >
+              <option value="" disabled hidden>Selecione o departamento</option>
               {DEPARTAMENTOS.map((op) => (
                 <option key={op} value={op}>
                   {op}
@@ -204,6 +209,9 @@ export function NovoAgendamentoModal({
             </select>
 
             {erro && <p className="text-tiny text-danger-700">{erro}</p>}
+    {externalError && (
+      <p className="text-tiny text-red-600 font-medium">{externalError}</p>
+    )}
           </ModalBody>
           <ModalFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
