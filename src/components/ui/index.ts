@@ -12,3 +12,6 @@ export {
   ModalFooter,
 } from "./Modal";
 export type { ModalProps, ModalContentProps, ModalHeaderProps, ModalBodyProps, ModalFooterProps } from "./Modal";
+
+export { Toast } from "./Toast";
+export type { ToastProps } from "./Toast";
