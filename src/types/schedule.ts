@@ -1,7 +1,9 @@
-export type SlotStatus = "available" | "booked" | "past";
+export type SlotStatus = "available" | "booked";
 
 export interface Booking {
   id: string;
+  roomId: string;
+  date: string;
   name: string;
   department: string;
   startTime: string;

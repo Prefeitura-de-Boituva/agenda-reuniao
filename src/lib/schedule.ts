@@ -20,27 +20,6 @@ export function generateTimeSlots(): Array<{ startTime: string; endTime: string 
   return slots;
 }
 
-export function isSameDate(date: Date, reference: Date): boolean {
-  return (
-    date.getFullYear() === reference.getFullYear() &&
-    date.getMonth() === reference.getMonth() &&
-    date.getDate() === reference.getDate()
-  );
-}
-
-export function isSlotPast(date: string, startTime: string): boolean {
-  const now = new Date();
-  const slotDate = parseDate(date);
-
-  if (!isSameDate(slotDate, now)) return false;
-
-  const [hours, minutes] = startTime.split(":").map(Number);
-  const slotDateTime = new Date(slotDate);
-  slotDateTime.setHours(hours, minutes, 0, 0);
-
-  return slotDateTime.getTime() < now.getTime();
-}
-
 export function parseDate(date: string): Date {
   const [year, month, day] = date.split("-").map(Number);
   return new Date(year, month - 1, day);
@@ -119,7 +98,6 @@ export function getBookingStatus(
 ): { status: SlotStatus; booking?: Booking } {
   const booking = bookings.find((b) => b.startTime <= startTime && b.endTime >= endTime);
   if (booking) return { status: "booked", booking };
-  if (isSlotPast(date, startTime)) return { status: "past" };
   return { status: "available" };
 }
 

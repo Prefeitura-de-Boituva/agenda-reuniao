@@ -40,6 +40,8 @@ export function getMockBookings(date: string): Booking[] {
     const person = MOCK_NAMES[bookingIndex % MOCK_NAMES.length];
     const booking: Booking = {
       id: `${date}-${bookingIndex}`,
+      roomId: block.room,
+      date,
       name: person.name,
       department: person.department,
       startTime: slots[block.startOffset].startTime,
