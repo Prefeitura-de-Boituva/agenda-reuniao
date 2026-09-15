@@ -218,6 +218,7 @@ export interface ScheduleGridProps {
   onCreateBooking: (booking: Booking) => void;
   onUpdateBooking: (booking: Booking) => void;
   onDeleteBooking: (bookingId: string, date: string) => void;
+  highlightedDate?: string;
 }
 
 export function ScheduleGrid({
@@ -231,6 +232,7 @@ export function ScheduleGrid({
   onCreateBooking,
   onUpdateBooking,
   onDeleteBooking,
+  highlightedDate,
 }: ScheduleGridProps) {
   const [createTarget, setCreateTarget] = useState<{ date: string; startTime: string } | null>(null);
   const [editTarget, setEditTarget] = useState<Booking | null>(null);
@@ -347,12 +349,13 @@ export function ScheduleGrid({
               {schedule.dates.map((date) => {
                 const dayStart = parseDate(date);
                 const isToday = date === todayISO;
+                const isHighlighted = date === highlightedDate;
                 return (
                   <th
                     key={date}
                     className={cn(
                       "px-4 py-3 text-left text-caption font-semibold",
-                      isToday ? "text-primary" : "text-neutral-700"
+                      isHighlighted ? "bg-primary-100 text-primary-900 border-b-2 border-primary" : isToday ? "text-primary" : "text-neutral-700"
                     )}
                   >
                     <span className="capitalize">{formatDateShort(dayStart)}</span>

@@ -3,9 +3,16 @@ import { CalendarDays } from "lucide-react";
 import { useState } from "react";
 import SalaTabs from "@/components/SalaTabs";
 import DateSelector from "@/components/DateSelector";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, buttonClasses } from "@/components/ui";
 import { toISODate } from "@/lib/schedule";
+import Link from "next/link";
 import Agenda from "@/components/Agenda";
+
+const ROOM_BY_SALA: Record<string, string> = {
+  "Sala 1": "sala-azul",
+  "Sala 2": "sala-verde",
+  "Sala 3": "sala-amarela",
+};
 
 export default function Home() {
   const [selectedSala, setSelectedSala] = useState<string>("Sala 1");
@@ -44,7 +51,12 @@ export default function Home() {
       </section>
 
       <SalaTabs selectedSala={selectedSala} onSelect={setSelectedSala} className="mb-4" />
-      <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} className="mb-4" />
+      <div className="flex items-end gap-4">
+        <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} className="flex-1" />
+        <Link href={`/grade?date=${selectedDate}&room=${ROOM_BY_SALA[selectedSala]}`} className={buttonClasses({ variant: "primary", size: "md" })}>
+          Ver na Grade de Horários
+        </Link>
+      </div>
 
       <Agenda selectedSala={selectedSala} />
 
