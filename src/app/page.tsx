@@ -1,8 +1,12 @@
+"use client";
 import { CalendarDays } from "lucide-react";
-import { Button } from "@/components/ui";
-import { Input } from "@/components/ui";
+import { useState } from "react";
+import SalaTabs from "@/components/SalaTabs";
+import { Button, Input } from "@/components/ui";
+import Agenda from "@/components/Agenda";
 
 export default function Home() {
+  const [selectedSala, setSelectedSala] = useState<string>("Sala 1");
   return (
     <div className="flex flex-col gap-8 py-8">
       <section className="flex flex-col gap-2">
@@ -35,6 +39,10 @@ export default function Home() {
           <p className="text-h1 font-bold text-primary">12</p>
         </div>
       </section>
+
+      <SalaTabs selectedSala={selectedSala} onSelect={setSelectedSala} className="mb-4" />
+
+      <Agenda selectedSala={selectedSala} />
 
       <section className="flex flex-col gap-4 rounded-xl bg-white p-6 shadow-card border border-neutral-200 max-w-md">
         <h2 className="text-h3 font-semibold text-neutral-900">
