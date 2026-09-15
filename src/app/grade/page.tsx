@@ -3,16 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { ScheduleGrid } from "@/components/schedule";
 import { fetchBookings } from "@/lib/bookings";
-import { getWeekDates, getWeekStart, shiftDate, toISODate } from "@/lib/schedule";
+import { getWeekDates, getWeekStart, parseDate, shiftDate, toISODate } from "@/lib/schedule";
+import { loadGradeState, saveGradeState } from "@/lib/storage";
 import type { Booking } from "@/types/schedule";
 import { ROOMS } from "@/lib/mock-data";
-
-interface OverrideEntry {
-  upserts: Booking[];
-  deletedIds: string[];
-}
-
-type RoomOverrides = Record<string, OverrideEntry>;
+import type { RoomOverrides } from "@/lib/storage";
 
 export default function GradePage() {
   const [selectedRoomId, setSelectedRoomId] = useState<string>(ROOMS[0].id);
@@ -20,8 +15,20 @@ export default function GradePage() {
   const [fetched, setFetched] = useState<Record<string, Record<string, Booking[]>>>({});
   const [overrides, setOverrides] = useState<Record<string, RoomOverrides>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    const saved = loadGradeState();
+    if (saved) {
+      setSelectedRoomId(saved.selectedRoomId);
+      setWeekStart(parseDate(saved.weekStartIso));
+      setOverrides(saved.overrides);
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
     let cancelled = false;
     setIsLoading(true);
     const dates = getWeekDates(weekStart).map(toISODate);
@@ -36,7 +43,12 @@ export default function GradePage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedRoomId, weekStart]);
+  }, [selectedRoomId, weekStart, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    saveGradeState({ overrides, selectedRoomId, weekStartIso: toISODate(weekStart) });
+  }, [overrides, selectedRoomId, weekStart, hydrated]);
 
   const bookings = useMemo(() => {
     const roomFetched = fetched[selectedRoomId] ?? {};
