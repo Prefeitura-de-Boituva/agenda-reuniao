@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { ScheduleGrid } from "@/components/schedule";
 import { fetchBookings } from "@/lib/bookings";
 import { getWeekDates, getWeekStart, parseDate, shiftDate, toISODate } from "@/lib/schedule";
@@ -9,13 +10,18 @@ import type { Booking } from "@/types/schedule";
 import { ROOMS } from "@/lib/mock-data";
 import type { RoomOverrides } from "@/lib/storage";
 
-export default function GradePage() {
+function GradeContent() {
+  const searchParams = useSearchParams();
+  const dateParam = searchParams?.get("date");
+  const roomParam = searchParams?.get("room");
+  
   const [selectedRoomId, setSelectedRoomId] = useState<string>(ROOMS[0].id);
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [fetched, setFetched] = useState<Record<string, Record<string, Booking[]>>>({});
   const [overrides, setOverrides] = useState<Record<string, RoomOverrides>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [highlightedDate, setHighlightedDate] = useState<string | undefined>(dateParam ?? undefined);
 
   useEffect(() => {
     const saved = loadGradeState();
@@ -26,6 +32,29 @@ export default function GradePage() {
     }
     setHydrated(true);
   }, []);
+
+  // Apply date param if present and valid
+  useEffect(() => {
+    if (!hydrated || !dateParam) return;
+    try {
+      const parsed = parseDate(dateParam);
+      if (!isNaN(parsed.getTime())) {
+        const newWeekStart = getWeekStart(parsed);
+        setWeekStart(newWeekStart);
+        setHighlightedDate(dateParam);
+      }
+    } catch {
+      // Invalid date param, ignore
+    }
+  }, [hydrated, dateParam]);
+
+  // Apply room param if present and valid
+  useEffect(() => {
+    if (!hydrated || !roomParam) return;
+    if (ROOMS.some((r) => r.id === roomParam)) {
+      setSelectedRoomId(roomParam);
+    }
+  }, [hydrated, roomParam]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -121,6 +150,15 @@ export default function GradePage() {
       onCreateBooking={handleCreateBooking}
       onUpdateBooking={handleUpdateBooking}
       onDeleteBooking={handleDeleteBooking}
+      highlightedDate={highlightedDate}
     />
+  );
+}
+
+export default function GradePage() {
+  return (
+    <Suspense fallback={<p className="p-8 text-center text-neutral-600">Carregando grade...</p>}>
+      <GradeContent />
+    </Suspense>
   );
 }

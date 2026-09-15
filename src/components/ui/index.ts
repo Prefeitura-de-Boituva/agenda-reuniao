@@ -1,4 +1,4 @@
-export { Button } from "./Button";
+export { Button, buttonClasses } from "./Button";
 export type { ButtonProps } from "./Button";
 
 export { Input } from "./Input";
