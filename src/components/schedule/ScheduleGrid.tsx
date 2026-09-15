@@ -13,6 +13,7 @@ import {
   SLOT_MINUTES,
 } from "@/lib/schedule";
 import { ROOMS } from "@/lib/mock-data";
+import { NovoAgendamentoModal } from "./NovoAgendamentoModal";
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Toast } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -460,18 +461,25 @@ export function ScheduleGrid({
       </div>
 
       {createTarget && (
-        <BookingFormModal
-          mode="create"
-          room={selectedRoom}
-          date={createTarget.date}
-          initialStartTime={createTarget.startTime}
-          existingBookings={bookings[createTarget.date] ?? []}
-          onSave={(booking) => {
-            onCreateBooking(booking);
+        <NovoAgendamentoModal
+          open={true}
+          onClose={() => setCreateTarget(null)}
+          onConfirm={(data) => {
+            const newBooking = {
+              id: crypto.randomUUID(),
+              roomId: selectedRoom.id,
+              date: createTarget.date,
+              startTime: data.inicio,
+              endTime: data.fim,
+              name: data.nome,
+              department: data.departamento,
+            };
+            onCreateBooking(newBooking);
             setCreateTarget(null);
             setNotice("Sua reunião foi agendada!");
           }}
-          onClose={() => setCreateTarget(null)}
+          salaInicial={selectedRoom.name}
+          dataInicial={createTarget.date}
         />
       )}
       {editTarget && (
