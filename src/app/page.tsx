@@ -2,11 +2,14 @@
 import { CalendarDays } from "lucide-react";
 import { useState } from "react";
 import SalaTabs from "@/components/SalaTabs";
+import DateSelector from "@/components/DateSelector";
 import { Button, Input } from "@/components/ui";
+import { toISODate } from "@/lib/schedule";
 import Agenda from "@/components/Agenda";
 
 export default function Home() {
   const [selectedSala, setSelectedSala] = useState<string>("Sala 1");
+  const [selectedDate, setSelectedDate] = useState<string>(toISODate(new Date()));
   return (
     <div className="flex flex-col gap-8 py-8">
       <section className="flex flex-col gap-2">
@@ -41,6 +44,7 @@ export default function Home() {
       </section>
 
       <SalaTabs selectedSala={selectedSala} onSelect={setSelectedSala} className="mb-4" />
+      <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} className="mb-4" />
 
       <Agenda selectedSala={selectedSala} />
 
