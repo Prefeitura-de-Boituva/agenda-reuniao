@@ -312,10 +312,16 @@ export function ScheduleGrid({
                 className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-caption font-medium text-primary-700 hover:bg-primary-100 transition-colors duration-150"
               >
                 Hoje
-              </button>
-            )}
-          </div>
-        </div>
+                    </button>
+                )}
+                <button
+                  onClick={() => setCreateTarget({ date: todayISO, startTime: "08:00" })}
+                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-caption font-medium text-neutral-600 hover:bg-neutral-50 transition-colors duration-150"
+                >
+                  Novo agendamento
+                </button>
+              </div>
+            </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {ROOMS.map((room) => (
