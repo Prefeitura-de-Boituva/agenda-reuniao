@@ -14,9 +14,10 @@ import {
 } from "@/lib/schedule";
 import { ROOMS } from "@/lib/mock-data";
 import { NovoAgendamentoModal } from "./NovoAgendamentoModal";
+import { CancelarAgendamentoModal } from "./CancelarAgendamentoModal";
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Toast } from "@/components/ui";
-import { cn } from "@/lib/utils";
 import { getSlotError, isSlotValido } from "@/lib/validations";
+import { cn } from "@/lib/utils";
 
 function computeEndTime(startTime: string, durationBlocks: number): string {
   const slots = generateTimeSlots();
@@ -186,6 +187,7 @@ function BookingFormModal({
   );
 }
 
+
 interface DeleteModalProps {
   booking: Booking;
   onConfirm: () => void;
@@ -198,8 +200,8 @@ function DeleteModal({ booking, onConfirm, onClose }: DeleteModalProps) {
       <ModalContent>
         <ModalHeader>Cancelar Agendamento</ModalHeader>
         <ModalBody>
-          Tem certeza que deseja cancelar o agendamento de{" "}
-          <strong>{booking.name}</strong> ({booking.department}) das {booking.startTime} às{" "}
+          Tem certeza que deseja cancelar o agendamento de{' '}
+          <strong>{booking.name}</strong> ({booking.department}) das {booking.startTime} às{' '}
           {booking.endTime}?
         </ModalBody>
         <ModalFooter>
@@ -215,6 +217,7 @@ function DeleteModal({ booking, onConfirm, onClose }: DeleteModalProps) {
   );
 }
 
+
 export interface ScheduleGridProps {
   bookings: Record<string, Booking[]>;
   isLoading?: boolean;
@@ -228,6 +231,7 @@ export interface ScheduleGridProps {
   onDeleteBooking: (bookingId: string, date: string) => void;
   highlightedDate?: string;
 }
+
 
 export function ScheduleGrid({
   bookings,
@@ -528,10 +532,10 @@ export function ScheduleGrid({
         />
       )}
       {deleteTarget && (
-        <DeleteModal
+        <CancelarAgendamentoModal
           booking={deleteTarget}
-          onConfirm={() => {
-            onDeleteBooking(deleteTarget.id, deleteTarget.date);
+          onConfirm={(id, date) => {
+            onDeleteBooking(id, date);
             setDeleteTarget(null);
           }}
           onClose={() => setDeleteTarget(null)}
