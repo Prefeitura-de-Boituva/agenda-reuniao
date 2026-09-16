@@ -18,9 +18,9 @@ const MOCK_NAMES = [
 
 const MOCK_BLOCKS: Array<{ room: string; startOffset: number; length: number }> = [
   { room: "sala-azul", startOffset: 0, length: 2 },
-  { room: "sala-azul", startOffset: 6, length: 3 },
+  { room: "sala-azul", startOffset: 6, length: 1 },
   { room: "sala-verde", startOffset: 4, length: 1 },
-  { room: "sala-verde", startOffset: 12, length: 4 },
+  { room: "sala-verde", startOffset: 12, length: 2 },
   { room: "sala-amarela", startOffset: 2, length: 2 },
   { room: "sala-amarela", startOffset: 9, length: 1 },
 ];

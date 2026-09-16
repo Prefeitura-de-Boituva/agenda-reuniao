@@ -15,6 +15,7 @@ import {
 import { ROOMS } from "@/lib/mock-data";
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Toast } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { getSlotError, isSlotValido } from "@/lib/validations";
 
 function computeEndTime(startTime: string, durationBlocks: number): string {
   const slots = generateTimeSlots();
@@ -80,8 +81,8 @@ function BookingFormModal({
       return b.startTime < candidateEnd && candidateStart < b.endTime;
     });
 
-  const durationOptions = [1, 2, 3, 4, 5, 6].filter(
-    (blocks) => blocks <= maxBlocks && !findConflict(startTime, blocks)
+  const durationOptions = Array.from({ length: maxBlocks }, (_, index) => index + 1).filter(
+    (blocks) => !findConflict(startTime, blocks)
   );
 
   const availableStarts = slots.filter(
@@ -90,10 +91,11 @@ function BookingFormModal({
   );
   const endTime = computeEndTime(startTime, durationBlocks);
   const conflict = findConflict(startTime, durationBlocks);
+  const slotError = isSlotValido(startTime, endTime) ? null : getSlotError(startTime, endTime);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (conflict) return;
+    if (conflict || slotError) return;
     const base =
       booking ??
       ({
@@ -163,12 +165,17 @@ function BookingFormModal({
                 {conflict.endTime}.
               </p>
             )}
+            {!conflict && slotError && (
+              <p className="text-tiny font-medium text-danger-700" role="alert">
+                {slotError}
+              </p>
+            )}
           </ModalBody>
           <ModalFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={!!conflict}>
+            <Button type="submit" disabled={!!conflict || slotError !== null}>
               {mode === "create" ? "Agendar" : "Salvar"}
             </Button>
           </ModalFooter>
@@ -399,7 +406,7 @@ export function ScheduleGrid({
                               : `Agendar ${date} das ${slot.startTime} às ${slot.endTime}`
                           }
                           className={cn(
-                            "flex min-h-12 items-center rounded-lg border px-2 py-1 text-caption",
+                            "flex h-12 items-center overflow-hidden rounded-lg border px-2 py-1 text-caption",
                             slot.status === "available" &&
                               "cursor-pointer border-success-200 bg-success-50 text-success-700 hover:border-success-300 hover:bg-success-100",
                             slot.status === "booked" &&
