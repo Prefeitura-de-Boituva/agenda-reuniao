@@ -41,7 +41,9 @@ export const DateSelector: React.FC<{
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      {/* Botão dia anterior */}
+      <label htmlFor="date-selector-input" className="sr-only">
+        Selecionar data
+      </label>
       <button
         type="button"
         onClick={goPrev}
@@ -55,19 +57,19 @@ export const DateSelector: React.FC<{
         <ChevronLeft className="size-4" aria-hidden="true" />
       </button>
 
-      {/* Input de data nativo */}
       <input
+        id="date-selector-input"
         type="date"
         value={selectedDate}
         min={todayISO}
         onChange={onInputChange}
+        aria-label="Selecionar data da reunião"
         className={cn(
           "flex h-10 items-center rounded-lg border border-neutral-300 bg-white px-3 text-body text-neutral-900",
           "focus:outline-none focus:ring-2 focus:ring-primary-100"
         )}
       />
 
-      {/* Botão próximo dia */}
       <button
         type="button"
         onClick={goNext}
@@ -80,7 +82,6 @@ export const DateSelector: React.FC<{
         <ChevronRight className="size-4" aria-hidden="true" />
       </button>
 
-      {/* Exibição legível da data selecionada */}
       <span className="text-body text-neutral-700">
         {formatDate(parseDate(selectedDate))}
       </span>

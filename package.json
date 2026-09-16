@@ -9,7 +9,10 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma skills sync || exit 0",
-    "contract:emit": "prisma contract emit"
+    "contract:emit": "prisma contract emit",
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "test:e2e": "cypress run"
   },
   "dependencies": {
     "@prisma/client": "^7.10.0",
@@ -18,7 +21,8 @@
     "lucide-react": "^1.46.0",
     "next": "16.3.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "react-focus-lock": "^2.13.7"
   },
   "devDependencies": {
     "@prisma/cli-engine": "^0.4.0",
@@ -26,6 +30,8 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cypress": "^15.21.1",
+    "cypress-axe": "^1.7.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "prisma": "^8.0.0-rc.15",
