@@ -13,6 +13,7 @@ import {
   SLOT_MINUTES,
 } from "@/lib/schedule";
 import { ROOMS } from "@/lib/mock-data";
+import { NovoAgendamentoModal } from "./NovoAgendamentoModal";
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Toast } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { getSlotError, isSlotValido } from "@/lib/validations";
@@ -245,6 +246,7 @@ export function ScheduleGrid({
   const [editTarget, setEditTarget] = useState<Booking | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!notice) return;
@@ -467,18 +469,41 @@ export function ScheduleGrid({
       </div>
 
       {createTarget && (
-        <BookingFormModal
-          mode="create"
-          room={selectedRoom}
-          date={createTarget.date}
-          initialStartTime={createTarget.startTime}
-          existingBookings={bookings[createTarget.date] ?? []}
-          onSave={(booking) => {
-            onCreateBooking(booking);
+        <NovoAgendamentoModal
+          open={true}
+          onClose={() => {
+          setCreateTarget(null);
+          // clear any previous error when modal closes
+          setCreateError(null);
+        }}
+          onConfirm={(data) => {
+            // Verify slot availability before confirming
+            const existing = bookings[data.data] ?? [];
+            const conflict = existing.some(
+              (b) =>
+                b.startTime < data.fim && data.inicio < b.endTime && b.roomId === selectedRoom.id
+            );
+            if (conflict) {
+              setCreateError('Conflito de horário: já existe agendamento neste intervalo.');
+              return;
+            }
+            const newBooking = {
+              id: crypto.randomUUID(),
+              roomId: selectedRoom.id,
+              date: data.data,
+              startTime: data.inicio,
+              endTime: data.fim,
+              name: data.nome,
+              department: data.departamento,
+            };
+            onCreateBooking(newBooking);
             setCreateTarget(null);
-            setNotice("Sua reunião foi agendada!");
+            setCreateError(null);
+            setNotice('Sua reunião foi agendada!');
           }}
-          onClose={() => setCreateTarget(null)}
+          salaInicial={selectedRoom.name}
+          dataInicial={createTarget.date}
+          externalError={createError}
         />
       )}
       {editTarget && (
