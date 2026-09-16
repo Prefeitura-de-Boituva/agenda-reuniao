@@ -33,7 +33,7 @@ function computeEndTime(startTime: string, durationBlocks: number): string {
 }
 
 const SELECT_CLASSES =
-  "flex h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-body text-neutral-900 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-100 transition-colors duration-150";
+  "flex h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-body text-neutral-900 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:outline-none";
 
 interface BookingFormModalProps {
   mode: "create" | "edit";
@@ -129,10 +129,11 @@ function BookingFormModal({
               required
             />
             <div className="flex flex-col gap-1.5">
-              <label className="text-caption font-medium text-neutral-700">
+              <label htmlFor="horario-inicio" className="text-caption font-medium text-neutral-700">
                 Horário de início
               </label>
               <select
+                id="horario-inicio"
                 className={SELECT_CLASSES}
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
@@ -145,8 +146,11 @@ function BookingFormModal({
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-caption font-medium text-neutral-700">Duração</label>
+              <label htmlFor="duracao" className="text-caption font-medium text-neutral-700">
+                Duração
+              </label>
               <select
+                id="duracao"
                 className={SELECT_CLASSES}
                 value={durationBlocks}
                 onChange={(e) => setDurationBlocks(Number(e.target.value))}
@@ -345,7 +349,15 @@ export function ScheduleGrid({
         </div>
       </div>
 
-      <div className="relative overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-card">
+      <div
+        className={cn(
+          "relative overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-card",
+          "sm:overflow-visible",
+          isLoading && "pointer-events-none"
+        )}
+        role="grid"
+        aria-label="Grade de horários da semana"
+      >
         {isLoading && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-white/70">
             <Loader2 className="size-6 animate-spin text-primary" />
@@ -356,7 +368,8 @@ export function ScheduleGrid({
         )}
         <table
           className={cn(
-            "w-full min-w-max border-collapse",
+            "w-full min-w-max border-collapse text-sm",
+            "sm:min-w-0",
             isLoading && "pointer-events-none"
           )}
         >
@@ -376,6 +389,7 @@ export function ScheduleGrid({
                       "px-4 py-3 text-left text-caption font-semibold",
                       isHighlighted ? "bg-primary-100 text-primary-900 border-b-2 border-primary" : isToday ? "text-primary" : "text-neutral-700"
                     )}
+                    scope="col"
                   >
                     <span className="capitalize">{formatDateShort(dayStart)}</span>
                     {isToday && <span className="ml-1 text-tiny font-normal">(hoje)</span>}
@@ -418,7 +432,8 @@ export function ScheduleGrid({
                               : `Agendar ${date} das ${slot.startTime} às ${slot.endTime}`
                           }
                           className={cn(
-                            "flex h-12 items-center overflow-hidden rounded-lg border px-2 py-1 text-caption",
+                            "flex h-12 w-full items-center overflow-hidden rounded-lg border px-2 py-1 text-caption",
+                            "focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:outline-none",
                             slot.status === "available" &&
                               "cursor-pointer border-success-200 bg-success-50 text-success-700 hover:border-success-300 hover:bg-success-100",
                             slot.status === "booked" &&
@@ -437,8 +452,9 @@ export function ScheduleGrid({
                                     e.stopPropagation();
                                     setEditTarget(slot.booking!);
                                   }}
-                                  className="rounded p-1 text-danger-700 hover:bg-danger-100 transition-colors duration-150"
+                                  className="rounded p-1 text-danger-700 hover:bg-danger-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-danger-400 focus-visible:outline-none"
                                   aria-label="Editar agendamento"
+                                  type="button"
                                 >
                                   <Pencil className="size-3.5" />
                                 </button>
@@ -447,8 +463,9 @@ export function ScheduleGrid({
                                     e.stopPropagation();
                                     openCancelModal(slot.booking!);
                                   }}
-                                  className="rounded p-1 text-danger-700 hover:bg-danger-100 transition-colors duration-150"
+                                  className="rounded p-1 text-danger-700 hover:bg-danger-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-danger-400 focus-visible:outline-none"
                                   aria-label="Cancelar agendamento"
+                                  type="button"
                                 >
                                   <Trash2 className="size-3.5" />
                                 </button>
