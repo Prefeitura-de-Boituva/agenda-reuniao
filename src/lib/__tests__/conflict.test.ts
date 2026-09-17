@@ -29,7 +29,7 @@ describe('temConflito', () => {
     mockWhere.mockResolvedValue([
       { horaInicio: '10:00', horaFim: '11:00' } as Agendamento,
     ]);
-    const result = await temConflito('Sala 1', '2026-09-20', '10:00', '11:00');
+    const result = await temConflito('Sala Azul', '2026-09-20', '10:00', '11:00');
     expect(result).toBe(true);
   });
 
@@ -37,7 +37,7 @@ describe('temConflito', () => {
     mockWhere.mockResolvedValue([
       { horaInicio: '10:00', horaFim: '11:00' } as Agendamento,
     ]);
-    const result = await temConflito('Sala 1', '2026-09-20', '10:30', '11:30');
+    const result = await temConflito('Sala Azul', '2026-09-20', '10:30', '11:30');
     expect(result).toBe(true);
   });
 
