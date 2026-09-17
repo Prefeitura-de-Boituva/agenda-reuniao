@@ -1,4 +1,5 @@
 import { getSlotError, isSlotValido } from "@/lib/validations";
+import { db } from "@/prisma/db";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -35,4 +36,30 @@ export async function POST(request: Request) {
     { nome, departamento, sala, data, horaInicio, horaFim },
     { status: 201 }
   );
+}
+
+export async function GET(request: Request): Promise<Response> {
+  const { searchParams } = new URL(request.url);
+  const sala = (searchParams.get('sala') ?? '').trim();
+  const data = (searchParams.get('data') ?? '').trim();
+
+  if (!sala || !data) {
+    return Response.json(
+      { error: "Parâmetros 'sala' e 'data' são obrigatórios." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const agendamentos = await db.orm.public.Agendamento.where({
+      sala,
+      data,
+    }).orderBy({ horaInicio: 'asc' });
+    return Response.json(agendamentos, { status: 200 });
+  } catch (e) {
+    return Response.json(
+      { error: 'Erro interno ao buscar agendamentos.' },
+      { status: 500 }
+    );
+  }
 }
