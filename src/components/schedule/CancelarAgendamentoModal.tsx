@@ -1,4 +1,4 @@
-"use client";
+import { useState, useEffect, useRef } from "react";
 
 import {
   Modal,
@@ -10,7 +10,8 @@ import {
   Input,
   Toast,
 } from "@/components/ui";
-import { useState, useEffect, useRef } from "react";
+import { toISODate } from "@/lib/schedule";
+import { DEPARTAMENTOS } from "@/lib/constants";
 import type { Booking } from "@/types/schedule";
 
 interface CancelarAgendamentoModalProps {
@@ -45,6 +46,12 @@ export function CancelarAgendamentoModal({
       setError("Departamento incorreto");
       return;
     }
+    // Prevent cancellation of past reservations
+    const today = toISODate(new Date());
+    if (booking.date < today) {
+      setError("Não é possível cancelar reservas passadas");
+      return;
+    }
     onConfirm(booking.id, booking.date);
     setShowToast(true);
     onClose();
@@ -71,18 +78,20 @@ export function CancelarAgendamentoModal({
             <p>
               <strong>Departamento atual:</strong> {booking.department}
             </p>
-            <Input
-              ref={inputRef}
-              label="Informe o departamento para confirmar o cancelamento"
-              value={departamentoInput}
-              onChange={(e) => {
-                setDepartamentoInput(e.target.value);
-                if (error) setError(null);
-              }}
-              error={error ?? undefined}
-              autoComplete="off"
-              aria-describedby={error ? "cancel-error-message" : undefined}
-            />
+                <select
+                  id="department-select"
+                  name="department"
+                  className="flex h-10 w-full rounded-lg border bg-white px-3 text-body text-neutral-900 focus:outline-none focus:ring-2 focus:border-primary focus:ring-primary-100"
+                  value={departamentoInput}
+                  onChange={(e) => setDepartamentoInput(e.target.value)}
+                >
+                  <option value="" disabled hidden>Selecione o departamento</option>
+                  {DEPARTAMENTOS.map((op) => (
+                    <option key={op} value={op}>
+                      {op}
+                    </option>
+                  ))}
+                </select>
             {error && (
               <p id="cancel-error-message" className="text-tiny text-danger-700" role="alert">
                 {error}

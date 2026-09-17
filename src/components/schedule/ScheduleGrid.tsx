@@ -12,7 +12,7 @@ import {
   toISODate,
   SLOT_MINUTES,
 } from "@/lib/schedule";
-import { ROOMS } from "@/lib/mock-data";
+import { ROOMS } from "@/lib/constants";
 import { NovoAgendamentoModal } from "./NovoAgendamentoModal";
 import { CancelarAgendamentoModal } from "./CancelarAgendamentoModal";
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Toast } from "@/components/ui";

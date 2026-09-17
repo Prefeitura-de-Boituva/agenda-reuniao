@@ -12,7 +12,8 @@
     "contract:emit": "prisma contract emit",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
-    "test:e2e": "cypress run"
+    "test:e2e": "cypress run",
+    "test:e2e:dev": "start /b npm run dev && cypress run"
   },
   "dependencies": {
     "@prisma/client": "^7.10.0",

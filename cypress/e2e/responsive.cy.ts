@@ -8,10 +8,10 @@ describe("Responsividade e Acessibilidade", () => {
 
   viewports.forEach(({ name, width, height }) => {
     describe(name, () => {
-      beforeEach(() => {
-        cy.viewport(width, height);
-        cy.visit("/");
-      });
+  beforeEach(() => {
+    cy.viewport(width, height);
+    cy.visit('/grade');
+  });
 
       it("deve carregar a pagina sem erros", () => {
         cy.get("body").should("be.visible");

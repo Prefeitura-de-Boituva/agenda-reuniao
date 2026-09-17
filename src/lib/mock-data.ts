@@ -1,11 +1,8 @@
 import type { Booking, Room } from "@/types/schedule";
 import { generateTimeSlots, parseDate } from "@/lib/schedule";
 
-export const ROOMS: Room[] = [
-  { id: "sala-azul", name: "Sala Azul" },
-  { id: "sala-verde", name: "Sala Verde" },
-  { id: "sala-amarela", name: "Sala Amarela" },
-];
+
+
 
 const MOCK_NAMES = [
   { name: "Maria Silva", department: "Saúde" },

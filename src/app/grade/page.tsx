@@ -7,7 +7,7 @@ import { fetchBookings } from "@/lib/bookings";
 import { getWeekDates, getWeekStart, parseDate, shiftDate, toISODate } from "@/lib/schedule";
 import { loadGradeState, saveGradeState } from "@/lib/storage";
 import type { Booking } from "@/types/schedule";
-import { ROOMS } from "@/lib/mock-data";
+import { ROOMS } from "@/lib/constants";
 import type { RoomOverrides } from "@/lib/storage";
 
 function GradeContent() {

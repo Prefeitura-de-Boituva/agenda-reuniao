@@ -10,16 +10,8 @@ import {
 } from "@/components/ui";
 
 const SALAS = ["Sala 1", "Sala 2", "Sala 3"];
-const DEPARTAMENTOS = [
-  "Financeiro",
-  "RH",
-  "Marketing",
-  "TI",
-  "Operações",
-  "Vendas",
-  "Legal",
-  "Administração",
-];
+import { DEPARTAMENTOS, ROOMS } from "@/lib/constants";
+
 
 const gerarSlotsInicio = () => {
   const slots: string[] = [];
@@ -102,8 +94,7 @@ export function NovoAgendamentoModal({
     setErro(null);
     setLoading(true);
     try {
-      onConfirm({ sala, data, inicio, fim, nome, departamento });
-      onClose();
+      await onConfirm({ sala, data, inicio, fim, nome, departamento });
     } catch (e) {
       setErro("Falha ao criar agendamento");
     } finally {
@@ -121,12 +112,13 @@ export function NovoAgendamentoModal({
               <label htmlFor="sala-select" className="text-caption font-medium text-neutral-700">
                 Sala
               </label>
-              <select
-                id="sala-select"
-                className="flex h-10 w-full rounded-lg border bg-white px-3 text-body text-neutral-900 focus:outline-none focus:ring-2 focus:border-primary focus:ring-primary-100"
-                value={sala}
-                onChange={(e) => setSala(e.target.value)}
-              >
+            <select
+                  id="sala-select"
+                  name="room"
+                  className="flex h-10 w-full rounded-lg border bg-white px-3 text-body text-neutral-900 focus:outline-none focus:ring-2 focus:border-primary focus:ring-primary-100"
+                  value={sala}
+                  onChange={(e) => setSala(e.target.value)}
+                >
                 {SALAS.map((op) => (
                   <option key={op} value={op}>
                     {op}
@@ -135,14 +127,14 @@ export function NovoAgendamentoModal({
               </select>
             </div>
 
-            <Input
-              label="Data"
-              type="date"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
-              min={today}
-              required
-            />
+        <Input
+          name="date"
+          label="Data"
+          type="date"
+          value={data}
+          onChange={(e) => setData(e.target.value)}
+          required
+        />
 
             <div>
               <label htmlFor="inicio-select" className="text-caption font-medium text-neutral-700">
@@ -180,18 +172,25 @@ export function NovoAgendamentoModal({
               </select>
             </div>
 
-            <Input label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} required />
+            <Input
+      name="subject"
+      label="Assunto"
+      value={nome}
+      onChange={(e) => setNome(e.target.value)}
+      required
+    />
 
             <div>
               <label htmlFor="departamento-select" className="text-caption font-medium text-neutral-700">
                 Departamento
               </label>
-              <select
-                id="departamento-select"
-                className="flex h-10 w-full rounded-lg border bg-white px-3 text-body text-neutral-900 focus:outline-none focus:ring-2 focus:border-primary focus:ring-primary-100"
-                value={departamento}
-                onChange={(e) => setDepartamento(e.target.value)}
-              >
+<select
+                  id="department-select"
+                  name="department"
+                  className="flex h-10 w-full rounded-lg border bg-white px-3 text-body text-neutral-900 focus:outline-none focus:ring-2 focus:border-primary focus:ring-primary-100"
+                  value={departamento}
+                  onChange={(e) => setDepartamento(e.target.value)}
+                >
                 <option value="" disabled hidden>Selecione o departamento</option>
                 {DEPARTAMENTOS.map((op) => (
                   <option key={op} value={op}>
