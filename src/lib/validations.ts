@@ -19,6 +19,16 @@ export function isFimMaiorQueInicio(inicio: string, fim: string): boolean {
   return fim > inicio;
 }
 
+export function isMesmoDepartamento(cadastrado: string, informado: string): boolean {
+  const normalizar = (valor: string) =>
+    valor
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  return normalizar(informado) === normalizar(cadastrado);
+}
+
 export function isSlotValido(inicio: string, fim: string): boolean {
   return (
     isFimMaiorQueInicio(inicio, fim) &&
