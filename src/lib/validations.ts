@@ -1,6 +1,6 @@
 export const PERMITTED_START_TIME = "08:00";
 export const PERMITTED_END_TIME = "17:00";
-export const MIN_DURATION_MINUTES = 30;
+export const MIN_DURATION_MINUTES = 29;
 
 export function timeToMinutes(time: string): number {
   const [hour, minute] = time.split(":").map(Number);
