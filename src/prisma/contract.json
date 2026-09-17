@@ -55,15 +55,15 @@
             "members": [
               {
                 "name": "SALA_1",
-                "value": "Sala 1"
+                "value": "Sala Azul"
               },
               {
                 "name": "SALA_2",
-                "value": "Sala 2"
+                "value": "Sala Verde"
               },
               {
                 "name": "SALA_3",
-                "value": "Sala 3"
+                "value": "Sala Amarela"
               }
             ]
           }
@@ -195,7 +195,7 @@
                   "prefix": "agendamento_departamento_check"
                 },
                 {
-                  "expression": "\"sala\" IN ('Sala 1', 'Sala 2', 'Sala 3')",
+                  "expression": "\"sala\" IN ('Sala Azul', 'Sala Verde', 'Sala Amarela')",
                   "name": "agendamento_sala_check_d53f5364",
                   "prefix": "agendamento_sala_check"
                 }
@@ -299,7 +299,7 @@
             "Sala": {
               "kind": "valueSet",
               "values": [
-                "Sala 1",
+                "Sala Azul",
                 "Sala 2",
                 "Sala 3"
               ]

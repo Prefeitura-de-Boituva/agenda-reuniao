@@ -254,7 +254,7 @@ export type FieldOutputTypes = {
         | 'Secretaria Municipal Turismo, Juventude e Empreendedorismo'
         | 'Secretaria Municipal Obras Públicas'
         | 'Secretaria Municipal Planejamento Urbano e Habitação';
-      readonly sala: 'Sala 1' | 'Sala 2' | 'Sala 3';
+      readonly sala: 'Sala Azul' | 'Sala Verde' | 'Sala Amarela';
       readonly data: CodecTypes['pg/date-string@1']['output'];
       readonly horaInicio: Varchar<5>;
       readonly horaFim: Varchar<5>;
@@ -276,7 +276,7 @@ export type FieldInputTypes = {
         | 'Secretaria Municipal Turismo, Juventude e Empreendedorismo'
         | 'Secretaria Municipal Obras Públicas'
         | 'Secretaria Municipal Planejamento Urbano e Habitação';
-      readonly sala: 'Sala 1' | 'Sala 2' | 'Sala 3';
+      readonly sala: 'Sala Azul' | 'Sala Verde' | 'Sala Amarela';
       readonly data: CodecTypes['pg/date-string@1']['input'];
       readonly horaInicio: CodecTypes['sql/varchar@1']['input'];
       readonly horaFim: CodecTypes['sql/varchar@1']['input'];
@@ -302,7 +302,7 @@ export type StorageColumnTypes = {
       readonly horaInicio: Varchar<5>;
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly nome: CodecTypes['pg/text@1']['output'];
-      readonly sala: 'Sala 1' | 'Sala 2' | 'Sala 3';
+      readonly sala: 'Sala Azul' | 'Sala Verde' | 'Sala Amarela';
     };
   };
 };
@@ -324,7 +324,7 @@ export type StorageColumnInputTypes = {
       readonly horaInicio: CodecTypes['sql/varchar@1']['input'];
       readonly id: CodecTypes['pg/text@1']['input'];
       readonly nome: CodecTypes['pg/text@1']['input'];
-      readonly sala: 'Sala 1' | 'Sala 2' | 'Sala 3';
+      readonly sala: 'Sala Azul' | 'Sala Verde' | 'Sala Amarela';
     };
   };
 };
@@ -342,7 +342,7 @@ export namespace Models {
       | 'Secretaria Municipal Turismo, Juventude e Empreendedorismo'
       | 'Secretaria Municipal Obras Públicas'
       | 'Secretaria Municipal Planejamento Urbano e Habitação';
-    sala: 'Sala 1' | 'Sala 2' | 'Sala 3';
+    sala: 'Sala Azul' | 'Sala Verde' | 'Sala Amarela';
     data: CodecTypes['pg/date-string@1']['output'];
     horaInicio: Varchar<5>;
     horaFim: Varchar<5>;
@@ -443,7 +443,7 @@ type ContractBase = Omit<
             };
             readonly Sala: {
               readonly kind: 'valueSet';
-              readonly values: readonly ['Sala 1', 'Sala 2', 'Sala 3'];
+              readonly values: readonly ['Sala Azul', 'Sala Verde', 'Sala Amarela'];
             };
           };
         };
@@ -566,9 +566,9 @@ type ContractBase = Omit<
           readonly Sala: {
             readonly codecId: 'pg/text@1';
             readonly members: readonly [
-              { readonly name: 'SALA_1'; readonly value: 'Sala 1' },
-              { readonly name: 'SALA_2'; readonly value: 'Sala 2' },
-              { readonly name: 'SALA_3'; readonly value: 'Sala 3' },
+              { readonly name: 'SALA_1'; readonly value: 'Sala Azul' },
+              { readonly name: 'SALA_2'; readonly value: 'Sala Verde' },
+              { readonly name: 'SALA_3'; readonly value: 'Sala Amarela' },
             ];
           };
         };

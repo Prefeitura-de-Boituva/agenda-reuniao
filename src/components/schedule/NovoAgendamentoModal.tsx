@@ -9,7 +9,7 @@ import {
   Button,
 } from "@/components/ui";
 
-const SALAS = ["Sala 1", "Sala 2", "Sala 3"];
+const SALAS = ["Sala Azul", "Sala Verde", "Sala Amarela"];
 const DEPARTAMENTOS = [
   "Financeiro",
   "RH",
