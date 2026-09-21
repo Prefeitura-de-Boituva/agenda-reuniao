@@ -1,20 +1,17 @@
-import { db } from "@/prisma/db";
+import { db } from "../prisma/db";
 
-/**
- * Verifica se há conflito de horário para a mesma sala e data.
- * Retorna true quando existe ao menos um agendamento cujo intervalo
- * sobrepõe o intervalo informado.
- */
 export async function temConflito(
   sala: string,
   data: string,
-  horaInicio: string,
-  horaFim: string
+  inicio: string,
+  fim: string
 ): Promise<boolean> {
-  const existentes = await db.orm.public.Agendamento.where({ sala, data });
-  // Sobreposição ocorre quando início novo < fim existente && fim novo > início existente
+  // Busca todos os agendamentos da mesma sala e data
+  const existentes = await db.orm.public.Agendamento.where({ sala, data })
+    .orderBy({ horaInicio: "asc" });
+
+  // Verifica se há sobreposição de horário
   return existentes.some(
-    (ag: { horaInicio: string; horaFim: string }) =>
-      horaInicio < ag.horaFim && horaFim > ag.horaInicio
+    (ag: any) => inicio < ag.horaFim && fim > ag.horaInicio
   );
 }

@@ -1,7 +1,8 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { db } from "@/prisma/db";
 
-// Mock Prisma DB
-vi.mock('@/prisma/db', () => ({
+// Mock Prisma client using the same alias used by the app
+vi.mock("@/prisma/db", () => ({
   db: {
     orm: {
       public: {
@@ -13,71 +14,88 @@ vi.mock('@/prisma/db', () => ({
   }
 }));
 
-import { temConflito } from '@/lib/conflict';
-import { db } from '@/prisma/db';
+import { temConflito } from "@/lib/conflict";
 
-type Agendamento = { horaInicio: string; horaFim: string };
+type Agendamento = {
+  sala: string;
+  data: string;
+  horaInicio: string;
+  horaFim: string;
+};
 
-describe('temConflito', () => {
-  const mockWhere = db.orm.public.Agendamento.where as any;
+const mockWhere = (returnValue: Agendamento[]) => {
+  // The mock respects the filter { sala, data }
+  // @ts-ignore – mock implementation for chainable methods
+  db.orm.public.Agendamento.where.mockImplementation((filter: { sala: string; data: string }) => {
+    const filtered = returnValue.filter(
+      (a) => a.sala === filter.sala && a.data === filter.data
+    );
+    return {
+      orderBy: vi.fn().mockResolvedValue(filtered),
+    };
+  });
+};
 
+describe("temConflito", () => {
   beforeEach(() => {
-    mockWhere.mockReset();
+    // reset mock for each test
+    // @ts-ignore
+    db.orm.public.Agendamento.where.mockReset();
   });
 
-  it('detecta conflito total (mesmo intervalo)', async () => {
-    mockWhere.mockResolvedValue([
-      { horaInicio: '10:00', horaFim: '11:00' } as Agendamento,
+  it("detecta conflito total", async () => {
+    mockWhere([
+      { sala: "Sala AZul", data: "2026-09-20", horaInicio: "10:00", horaFim: "11:00" }
     ]);
-    const result = await temConflito('Sala Azul', '2026-09-20', '10:00', '11:00');
+    const result = await temConflito("Sala AZul", "2026-09-20", "10:00", "11:00");
     expect(result).toBe(true);
   });
 
-  it('detecta conflito parcial (início dentro de outro)', async () => {
-    mockWhere.mockResolvedValue([
-      { horaInicio: '10:00', horaFim: '11:00' } as Agendamento,
+  it("detecta conflito parcial", async () => {
+    mockWhere([
+      { sala: "Sala AZul", data: "2026-09-20", horaInicio: "10:00", horaFim: "11:00" }
     ]);
-    const result = await temConflito('Sala Azul', '2026-09-20', '10:30', '11:30');
+    const result = await temConflito("Sala AZul", "2026-09-20", "10:30", "11:30");
     expect(result).toBe(true);
   });
 
-  it('detecta conflito quando início coincide', async () => {
-    mockWhere.mockResolvedValue([
-      { horaInicio: '10:00', horaFim: '11:00' } as Agendamento,
+  it("não gera conflito quando salas diferem", async () => {
+    mockWhere([
+      { sala: "Sala Verde", data: "2026-09-20", horaInicio: "10:00", horaFim: "11:00" }
     ]);
-    const result = await temConflito('Sala 1', '2026-09-20', '10:00', '10:30');
-    expect(result).toBe(true);
-  });
-
-  it('detecta conflito quando fim coincide', async () => {
-    mockWhere.mockResolvedValue([
-      { horaInicio: '10:00', horaFim: '11:00' } as Agendamento,
-    ]);
-    const result = await temConflito('Sala 1', '2026-09-20', '09:30', '11:00');
-    expect(result).toBe(true);
-  });
-
-  it('não gera conflito em sala diferente', async () => {
-    mockWhere.mockResolvedValue([
-      { horaInicio: '10:00', horaFim: '11:00' } as Agendamento,
-    ]);
-    const result = await temConflito('Sala 2', '2026-09-20', '10:30', '11:30');
+    const result = await temConflito("Sala AZul", "2026-09-20", "10:30", "11:30");
     expect(result).toBe(false);
   });
 
-  it('não gera conflito em data diferente', async () => {
-    mockWhere.mockResolvedValue([
-      { horaInicio: '10:00', horaFim: '11:00' } as Agendamento,
+  it("não gera conflito quando datas diferem", async () => {
+    mockWhere([
+      { sala: "Sala AZul", data: "2026-09-21", horaInicio: "10:00", horaFim: "11:00" }
     ]);
-    const result = await temConflito('Sala 1', '2026-09-21', '10:30', '11:30');
+    const result = await temConflito("Sala AZul", "2026-09-20", "10:30", "11:30");
     expect(result).toBe(false);
   });
 
-  it('não gera conflito para reservas consecutivas (fim coincide com início)', async () => {
-    mockWhere.mockResolvedValue([
-      { horaInicio: '10:00', horaFim: '11:00' } as Agendamento,
+  it("não gera conflito para reservas consecutivas", async () => {
+    mockWhere([
+      { sala: "Sala AZul", data: "2026-09-20", horaInicio: "10:00", horaFim: "11:00" }
     ]);
-    const result = await temConflito('Sala 1', '2026-09-20', '11:00', '12:00');
+    const result = await temConflito("Sala AZul", "2026-09-20", "11:00", "12:00");
     expect(result).toBe(false);
+  });
+
+  it("início igual (sobreposição total no início)", async () => {
+    mockWhere([
+      { sala: "Sala AZul", data: "2026-09-20", horaInicio: "10:00", horaFim: "11:00" }
+    ]);
+    const result = await temConflito("Sala AZul", "2026-09-20", "10:00", "10:30");
+    expect(result).toBe(true);
+  });
+
+  it("fim igual (sobreposição total no fim)", async () => {
+    mockWhere([
+      { sala: "Sala AZul", data: "2026-09-20", horaInicio: "10:00", horaFim: "11:00" }
+    ]);
+    const result = await temConflito("Sala AZul", "2026-09-20", "10:30", "11:00");
+    expect(result).toBe(true);
   });
 });

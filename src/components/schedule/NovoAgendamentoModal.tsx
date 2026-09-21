@@ -9,7 +9,7 @@ import {
   Button,
 } from "@/components/ui";
 
-const SALAS = ["Sala 1", "Sala 2", "Sala 3"];
+const SALAS = ["Sala AZul", "Sala Verde", "Sala Amarela"];
 const DEPARTAMENTOS = [
   "Financeiro",
   "RH",
@@ -45,14 +45,14 @@ const SLOTS_FIM = SLOTS_INICIO.map((_, i) => {
 export interface NovoAgendamentoModalProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: (data: {
-    sala: string;
-    data: string;
-    inicio: string;
-    fim: string;
-    nome: string;
-    departamento: string;
-  }) => void;
+onConfirm: (data: {
+      sala: string;
+      data: string;
+      inicio: string;
+      fim: string;
+      nome: string;
+      departamento: string;
+    }) => Promise<boolean> | boolean;
   salaInicial?: string;
   dataInicial?: string;
   externalError?: string | null;
@@ -77,9 +77,9 @@ export function NovoAgendamentoModal({
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+    // Previously we copied externalError into internal error state, which caused duplicate messages.
+    // Now we rely solely on the externalError prop for display (handled by parent).
+  }, [externalError]);
   useEffect(() => {
     const index = SLOTS_INICIO.indexOf(inicio);
     const novoFim = SLOTS_FIM[index] ?? SLOTS_FIM[SLOTS_FIM.length - 1];
@@ -102,10 +102,12 @@ export function NovoAgendamentoModal({
     setErro(null);
     setLoading(true);
     try {
-      onConfirm({ sala, data, inicio, fim, nome, departamento });
-      onClose();
+      const result = await onConfirm({ sala, data, inicio, fim, nome, departamento });
+      if (result) {
+        onClose();
+      }
     } catch (e) {
-      setErro("Falha ao criar agendamento");
+      // error is handled by parent via externalError
     } finally {
       setLoading(false);
     }
@@ -201,16 +203,16 @@ export function NovoAgendamentoModal({
               </select>
             </div>
 
-            {erro && (
-              <p id="error-message" className="text-tiny text-danger-700" role="alert">
-                {erro}
-              </p>
-            )}
-            {externalError && (
-              <p id="external-error-message" className="text-tiny text-danger-700" role="alert">
-                {externalError}
-              </p>
-            )}
+{erro && (
+          <p id="error-message" className="text-tiny text-danger-700" role="alert">
+            {erro}
+          </p>
+        )}
+        {externalError && (
+          <p id="external-error-message" className="text-tiny text-danger-700" role="alert">
+            {externalError}
+          </p>
+        )}
           </ModalBody>
           <ModalFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>

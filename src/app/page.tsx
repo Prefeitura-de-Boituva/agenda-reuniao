@@ -9,13 +9,13 @@ import Link from "next/link";
 import Agenda from "@/components/Agenda";
 
 const ROOM_BY_SALA: Record<string, string> = {
-  "Sala 1": "sala-azul",
-  "Sala 2": "sala-verde",
-  "Sala 3": "sala-amarela",
+  "Sala AZul": "sala-azul",
+  "Sala Verde": "sala-verde",
+  "Sala Amarela": "sala-amarela",
 };
 
 export default function Home() {
-  const [selectedSala, setSelectedSala] = useState<string>("Sala 1");
+  const [selectedSala, setSelectedSala] = useState<string>("Sala AZul");
   const [selectedDate, setSelectedDate] = useState<string>(toISODate(new Date()));
   return (
     <div className="flex flex-col gap-8 py-8">

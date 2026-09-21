@@ -11,7 +11,7 @@ const agendamento = {
   id: "abc-123",
   nome: "João",
   departamento: "Secretaria Municipal Fazenda, Desenvolvimento Econômico e Finanças",
-  sala: "Sala 1",
+  sala: "Sala AZul",
   data: "2026-09-18",
   horaInicio: "08:00",
   horaFim: "09:00",
