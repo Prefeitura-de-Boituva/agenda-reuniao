@@ -503,31 +503,51 @@ export function ScheduleGrid({
           // clear any previous error when modal closes
           setCreateError(null);
         }}
-          onConfirm={(data) => {
-            // Verify slot availability before confirming
-            const existing = bookings[data.data] ?? [];
-            const conflict = existing.some(
-              (b) =>
-                b.startTime < data.fim && data.inicio < b.endTime && b.roomId === selectedRoom.id
-            );
-            if (conflict) {
-              setCreateError('Conflito de horário: já existe agendamento neste intervalo.');
-              return;
+          onConfirm={async (data) => {
+            // Call backend to create booking and handle conflict
+            try {
+              const res = await fetch('/api/agendamentos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  nome: data.nome,
+                  departamento: data.departamento,
+                  sala: data.sala,
+                  data: data.data,
+                  horaInicio: data.inicio,
+                  horaFim: data.fim,
+                }),
+              });
+              if (!res.ok) {
+                const err = await res.json();
+                if (res.status === 409 && err?.error) {
+                  setCreateError(err.error);
+                } else {
+                  setCreateError('Horário indisponível para esta sala na data selecionada');
+                }
+                return false;
+              }
+              // Success: add booking locally
+              onCreateBooking({
+                id: crypto.randomUUID(),
+                roomId: selectedRoom.id,
+                date: data.data,
+                startTime: data.inicio,
+                endTime: data.fim,
+                name: data.nome,
+                department: data.departamento,
+              });
+              setCreateTarget(null);
+              setCreateError(null);
+              setNotice('Sua reunião foi agendada!');
+              return true;
+            } catch (e) {
+                setCreateError('Horário indisponível para esta sala na data selecionada');
+              return false;
             }
-            const newBooking = {
-              id: crypto.randomUUID(),
-              roomId: selectedRoom.id,
-              date: data.data,
-              startTime: data.inicio,
-              endTime: data.fim,
-              name: data.nome,
-              department: data.departamento,
-            };
-            onCreateBooking(newBooking);
-            setCreateTarget(null);
-            setCreateError(null);
-            setNotice('Sua reunião foi agendada!');
           }}
+
+
           salaInicial={selectedRoom.name}
           dataInicial={createTarget.date}
           externalError={createError}

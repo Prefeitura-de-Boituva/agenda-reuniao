@@ -2,6 +2,7 @@ import { db } from "@/prisma/db";
 import { isMesmoDepartamento } from "./validations";
 
 export async function buscarAgendamento(idAgendamento: string) {
+  // Placeholder for Prisma query – .where returns a query builder with .first()
   return db.orm.public.Agendamento.where({ id: idAgendamento }).first();
 }
 

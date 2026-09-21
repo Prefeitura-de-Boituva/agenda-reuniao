@@ -1,4 +1,5 @@
 import { getSlotError, isSlotValido } from "@/lib/validations";
+import { temConflito } from "../../../lib/conflict";
 import { db } from "@/prisma/db";
 
 export async function POST(request: Request) {
@@ -31,6 +32,16 @@ export async function POST(request: Request) {
   if (slotError) {
     return Response.json({ error: slotError }, { status: 400 });
   }
+
+  // Verifica conflito de horário antes de criar o agendamento
+  const conflito = await temConflito(sala, data, horaInicio, horaFim);
+  if (conflito) {
+    return Response.json(
+      { error: "Horário conflita com agendamento existente" },
+      { status: 409 }
+    );
+  }
+
 
   return Response.json(
     { nome, departamento, sala, data, horaInicio, horaFim },
