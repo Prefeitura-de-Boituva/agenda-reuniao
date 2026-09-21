@@ -47,7 +47,11 @@ describe("temConflito", () => {
     mockWhere([
       { sala: "Sala AZul", data: "2026-09-20", horaInicio: "10:00", horaFim: "11:00" }
     ]);
+<<<<<<< HEAD
     const result = await temConflito("Sala AZul", "2026-09-20", "10:00", "11:00");
+=======
+    const result = await temConflito('Sala Azul', '2026-09-20', '10:00', '11:00');
+>>>>>>> ab0f4558c9df1ae05eb276b326f88b60300fb343
     expect(result).toBe(true);
   });
 
@@ -55,7 +59,11 @@ describe("temConflito", () => {
     mockWhere([
       { sala: "Sala AZul", data: "2026-09-20", horaInicio: "10:00", horaFim: "11:00" }
     ]);
+<<<<<<< HEAD
     const result = await temConflito("Sala AZul", "2026-09-20", "10:30", "11:30");
+=======
+    const result = await temConflito('Sala Azul', '2026-09-20', '10:30', '11:30');
+>>>>>>> ab0f4558c9df1ae05eb276b326f88b60300fb343
     expect(result).toBe(true);
   });
 
@@ -63,7 +71,27 @@ describe("temConflito", () => {
     mockWhere([
       { sala: "Sala Verde", data: "2026-09-20", horaInicio: "10:00", horaFim: "11:00" }
     ]);
+<<<<<<< HEAD
     const result = await temConflito("Sala AZul", "2026-09-20", "10:30", "11:30");
+=======
+    const result = await temConflito('Sala Azul', '2026-09-20', '10:00', '10:30');
+    expect(result).toBe(true);
+  });
+
+  it('detecta conflito quando fim coincide', async () => {
+    mockWhere.mockResolvedValue([
+      { horaInicio: '10:00', horaFim: '11:00' } as Agendamento,
+    ]);
+    const result = await temConflito('Sala Azul', '2026-09-20', '09:30', '11:00');
+    expect(result).toBe(true);
+  });
+
+  it('não gera conflito em sala diferente', async () => {
+    mockWhere.mockResolvedValue([
+      { horaInicio: '10:00', horaFim: '11:00' } as Agendamento,
+    ]);
+    const result = await temConflito('Sala Verde', '2026-09-20', '10:30', '11:30');
+>>>>>>> ab0f4558c9df1ae05eb276b326f88b60300fb343
     expect(result).toBe(false);
   });
 
@@ -71,7 +99,11 @@ describe("temConflito", () => {
     mockWhere([
       { sala: "Sala AZul", data: "2026-09-21", horaInicio: "10:00", horaFim: "11:00" }
     ]);
+<<<<<<< HEAD
     const result = await temConflito("Sala AZul", "2026-09-20", "10:30", "11:30");
+=======
+    const result = await temConflito('Sala Azul', '2026-09-21', '10:30', '11:30');
+>>>>>>> ab0f4558c9df1ae05eb276b326f88b60300fb343
     expect(result).toBe(false);
   });
 
@@ -79,7 +111,11 @@ describe("temConflito", () => {
     mockWhere([
       { sala: "Sala AZul", data: "2026-09-20", horaInicio: "10:00", horaFim: "11:00" }
     ]);
+<<<<<<< HEAD
     const result = await temConflito("Sala AZul", "2026-09-20", "11:00", "12:00");
+=======
+    const result = await temConflito('Sala Azul', '2026-09-20', '11:00', '12:00');
+>>>>>>> ab0f4558c9df1ae05eb276b326f88b60300fb343
     expect(result).toBe(false);
   });
 

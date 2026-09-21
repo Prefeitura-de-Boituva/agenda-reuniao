@@ -14,9 +14,9 @@ enum Departamento {
 
 enum Sala {
   @@type("pg/text@1")
-  SALA_1 = "Sala 1"
-  SALA_2 = "Sala 2"
-  SALA_3 = "Sala 3"
+  SALA_1 = "Sala Azul"
+  SALA_2 = "Sala Verde"
+  SALA_3 = "Sala Amarela"
 }
 
 model Agendamento {

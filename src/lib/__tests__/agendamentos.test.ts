@@ -11,7 +11,11 @@ const agendamento = {
   id: "abc-123",
   nome: "João",
   departamento: "Secretaria Municipal Fazenda, Desenvolvimento Econômico e Finanças",
+<<<<<<< HEAD
   sala: "Sala AZul",
+=======
+  sala: "Sala Azul",
+>>>>>>> ab0f4558c9df1ae05eb276b326f88b60300fb343
   data: "2026-09-18",
   horaInicio: "08:00",
   horaFim: "09:00",
