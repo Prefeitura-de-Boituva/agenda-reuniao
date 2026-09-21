@@ -9,11 +9,8 @@ import {
   Button,
 } from "@/components/ui";
 
-<<<<<<< HEAD
-const SALAS = ["Sala AZul", "Sala Verde", "Sala Amarela"];
-=======
 const SALAS = ["Sala Azul", "Sala Verde", "Sala Amarela"];
->>>>>>> ab0f4558c9df1ae05eb276b326f88b60300fb343
+
 const DEPARTAMENTOS = [
   "Financeiro",
   "RH",
