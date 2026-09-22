@@ -26,7 +26,7 @@ function computeEndTime(startTime: string, durationBlocks: number): string {
     return slots[index + durationBlocks - 1].endTime;
   }
   const [hour, minute] = startTime.split(":").map(Number);
-  const totalMinutes = hour * 60 + minute + durationBlocks * SLOT_MINUTES - 1;
+  const totalMinutes = hour * 60 + minute + durationBlocks * SLOT_MINUTES;
   const endHour = Math.floor(totalMinutes / 60);
   const endMinute = totalMinutes % 60;
   return `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`;
@@ -68,7 +68,7 @@ function BookingFormModal({
     const [startHour, startMinute] = booking.startTime.split(":").map(Number);
     const [endHour, endMinute] = booking.endTime.split(":").map(Number);
     const startTotal = startHour * 60 + startMinute;
-    const endTotal = endHour * 60 + endMinute + 1;
+    const endTotal = endHour * 60 + endMinute;
     return Math.round((endTotal - startTotal) / SLOT_MINUTES);
   });
   const [durationBlocks, setDurationBlocks] = useState(initialBlocks);

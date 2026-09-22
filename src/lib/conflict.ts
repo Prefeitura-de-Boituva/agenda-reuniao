@@ -11,7 +11,5 @@ export async function temConflito(
     .orderBy({ horaInicio: "asc" });
 
   // Verifica se há sobreposição de horário
-  return existentes.some(
-    (ag: any) => inicio < ag.horaFim && fim > ag.horaInicio
-  );
+  return existentes.some((ag: any) => inicio < ag.horaFim && fim > ag.horaInicio);
 }

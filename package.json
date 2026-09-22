@@ -24,7 +24,8 @@
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "react-focus-lock": "^2.13.7"
+    "react-focus-lock": "^2.13.7",
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
     "@prisma/cli-engine": "^0.4.0",
