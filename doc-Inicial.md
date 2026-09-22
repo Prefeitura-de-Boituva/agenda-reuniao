@@ -1,3 +1,19 @@
+# RN12 – Bloqueio de agendamento em horário passado (mesmo dia)
+
+**Regra de negócio**
+- Não é permitido agendar um horário que já tenha decorrido no dia corrente. Se a data do agendamento for hoje, o horário de início deve ser maior ou igual ao horário atual.
+
+**Motivação**
+- Garante que a grade reflita apenas possibilidades futuras, evitando confusão e entradas inconsistentes.
+
+**Implementação**
+- **Back‑end** (`src/app/api/agendamentos/route.ts`): a verificação `isPast` devolve 400 com a mensagem *"Horário já passou no dia atual."* antes de salvar.
+- **Front‑end** (`src/components/schedule/ScheduleGrid.tsx` → `BookingFormModal`): a mesma verificação impede o submit e exibe a mensagem ao usuário.
+
+**Código de erro**: `ERR_PAST_TIME`
+
+---
+
 # RN13 – Reservas Consecutivas
 
 **Regra de negócio**

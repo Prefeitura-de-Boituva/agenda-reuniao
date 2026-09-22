@@ -95,7 +95,30 @@ function BookingFormModal({
   const conflict = findConflict(startTime, durationBlocks);
   const slotError = isSlotValido(startTime, endTime) ? null : getSlotError(startTime, endTime);
 
+  const isPastToday = (dateStr: string, timeStr: string): boolean => {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    if (dateStr !== today) return false;
+    const [h, m] = timeStr.split(":").map(Number);
+    const minutesNow = now.getHours() * 60 + now.getMinutes();
+    return h * 60 + m < minutesNow;
+  };
+
+  const pastError = isPastToday(date, startTime) ? "Horário já passou no dia atual." : null;
+
   const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (conflict || slotError || pastError) return;
+    const base =
+      booking ??
+      ({
+        id: crypto.randomUUID(),
+        roomId: room.id,
+        date,
+      } as Booking);
+    onSave({ ...base, name, department, startTime, endTime });
+  };
+
     event.preventDefault();
     if (conflict || slotError) return;
     const base =
@@ -167,8 +190,13 @@ function BookingFormModal({
             </p>
             {conflict && (
               <p className="text-tiny font-medium text-danger-700">
-                Conflito de horário com o agendamento de {conflict.name} das {conflict.startTime} às{" "}
+                Conflito de horário com o agendamento de {conflict.name} das {conflict.startTime} às{' '}
                 {conflict.endTime}.
+              </p>
+            )}
+            {pastError && (
+              <p className="text-tiny font-medium text-danger-700" role="alert">
+                {pastError}
               </p>
             )}
             {!conflict && slotError && (
