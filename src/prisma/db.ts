@@ -27,7 +27,7 @@ export const db: any = {
               const deleted = matched[0] ?? null;
               if (deleted) {
                 const index = db.orm.public._store.findIndex(
-                  (a) => a.id === deleted.id
+                  (a: { id: string }) => a.id === deleted.id
                 );
                 if (index !== -1) db.orm.public._store.splice(index, 1);
               }

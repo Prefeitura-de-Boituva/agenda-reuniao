@@ -543,9 +543,11 @@ export function ScheduleGrid({
                 }
                 return false;
               }
-              // Success: add booking locally
+              // Success: add booking locally, keeping the server‑generated id
+              // so the cancellation (DELETE /api/agendamentos/[id]) finds it.
+              const created = await res.json();
               onCreateBooking({
-                id: crypto.randomUUID(),
+                id: created.id ?? crypto.randomUUID(),
                 roomId: selectedRoom.id,
                 date: data.data,
                 startTime: data.inicio,
@@ -589,6 +591,7 @@ export function ScheduleGrid({
           booking={deleteTarget}
           onConfirm={(id, date) => {
             onDeleteBooking(id, date);
+            setNotice("Agendamento cancelado com sucesso!");
             setDeleteTarget(null);
           }}
           onClose={() => setDeleteTarget(null)}

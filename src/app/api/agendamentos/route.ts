@@ -81,7 +81,7 @@ export async function POST(request: Request) {
 
 
   // Persist the new agendamento
-  await db.orm.public.Agendamento.create({
+  const novoAgendamento = {
     id: crypto.randomUUID(),
     nome,
     departamento,
@@ -90,12 +90,11 @@ export async function POST(request: Request) {
     horaInicio,
     horaFim,
     criadoEm: new Date().toISOString(),
-  });
+  };
 
-  return Response.json(
-    { nome, departamento, sala, data, horaInicio, horaFim },
-    { status: 201 }
-  );
+  await db.orm.public.Agendamento.create(novoAgendamento);
+
+  return Response.json(novoAgendamento, { status: 201 });
 }
 
 export async function GET(request: Request): Promise<Response> {

@@ -8,10 +8,10 @@ import {
   ModalFooter,
   Button,
   Input,
-  Toast,
 } from "@/components/ui";
 import { useState, useEffect, useRef } from "react";
 import type { Booking } from "@/types/schedule";
+import { cancelarAgendamento } from "@/lib/apiClient";
 
 interface CancelarAgendamentoModalProps {
   booking: Booking;
@@ -26,7 +26,7 @@ export function CancelarAgendamentoModal({
 }: CancelarAgendamentoModalProps) {
   const [departamentoInput, setDepartamentoInput] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [showToast, setShowToast] = useState(false);
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -35,19 +35,30 @@ export function CancelarAgendamentoModal({
     }
   }, [booking]);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const trimmed = departamentoInput.trim();
     if (!trimmed) {
       setError("Departamento é obrigatório");
       return;
     }
-    if (trimmed !== booking.department) {
-      setError("Departamento incorreto");
-      return;
+
+    setError(null);
+    setLoading(true);
+    try {
+      // A validação do departamento (case-insensitive) é feita no servidor
+      // (DELETE /api/agendamentos/[id]) e os erros 400/403/404 são exibidos aqui.
+      await cancelarAgendamento(booking.id, trimmed);
+      onConfirm(booking.id, booking.date);
+      onClose();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível cancelar o agendamento. Tente novamente."
+      );
+    } finally {
+      setLoading(false);
     }
-    onConfirm(booking.id, booking.date);
-    setShowToast(true);
-    onClose();
   };
 
   return (
@@ -82,6 +93,7 @@ export function CancelarAgendamentoModal({
               error={error ?? undefined}
               autoComplete="off"
               aria-describedby={error ? "cancel-error-message" : undefined}
+              disabled={loading}
             />
             {error && (
               <p id="cancel-error-message" className="text-tiny text-danger-700" role="alert">
@@ -94,6 +106,7 @@ export function CancelarAgendamentoModal({
               type="button"
               variant="outline"
               onClick={onClose}
+              disabled={loading}
             >
               Voltar
             </Button>
@@ -101,16 +114,13 @@ export function CancelarAgendamentoModal({
               type="button"
               variant="danger"
               onClick={handleConfirm}
+              disabled={loading}
             >
-              Confirmar cancelamento
+              {loading ? "Cancelando…" : "Confirmar cancelamento"}
             </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
-
-      <Toast show={showToast} onClose={() => setShowToast(false)}>
-        Cancelamento realizado com sucesso!
-      </Toast>
     </>
   );
 }
