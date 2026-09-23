@@ -119,18 +119,6 @@ function BookingFormModal({
     onSave({ ...base, name, department, startTime, endTime });
   };
 
-    event.preventDefault();
-    if (conflict || slotError) return;
-    const base =
-      booking ??
-      ({
-        id: crypto.randomUUID(),
-        roomId: room.id,
-        date,
-      } as Booking);
-    onSave({ ...base, name, department, startTime, endTime });
-  };
-
   return (
     <Modal open onClose={onClose}>
       <ModalContent>

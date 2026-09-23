@@ -10,7 +10,8 @@
 - **Back‑end** (`src/app/api/agendamentos/route.ts`): a verificação `isPast` devolve 400 com a mensagem *"Horário já passou no dia atual."* antes de salvar.
 - **Front‑end** (`src/components/schedule/ScheduleGrid.tsx` → `BookingFormModal`): a mesma verificação impede o submit e exibe a mensagem ao usuário.
 
-**Código de erro**: `ERR_PAST_TIME`
+**Resposta da API**
+- `400 Bad Request` com o corpo `{ "error": "Horário já passou no dia atual." }`. A API não expõe um código de erro estruturado; o front‑end bloqueia antes do submit usando `isPastToday` (`src/lib/validations.ts`).
 
 ---
 

@@ -8,6 +8,7 @@ import {
   Input,
   Button,
 } from "@/components/ui";
+import { isPastToday } from "@/lib/validations";
 
 const SALAS = ["Sala Azul", "Sala Verde", "Sala Amarela"];
 
@@ -88,6 +89,7 @@ export function NovoAgendamentoModal({
   }, [inicio, fim]);
 
   const validar = () => {
+    if (isPastToday(data, inicio)) return "Horário já passou no dia atual.";
     if (!nome.trim()) return "Nome é obrigatório";
     if (!departamento) return "Departamento é obrigatório";
     if (fim <= inicio) return "Horário de fim deve ser posterior ao início";

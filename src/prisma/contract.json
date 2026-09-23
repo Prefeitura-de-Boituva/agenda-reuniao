@@ -196,7 +196,7 @@
                 },
                 {
                   "expression": "\"sala\" IN ('Sala Azul', 'Sala Verde', 'Sala Amarela')",
-                  "name": "agendamento_sala_check_d53f5364",
+                  "name": "agendamento_sala_check_ea25e272",
                   "prefix": "agendamento_sala_check"
                 }
               ],
@@ -300,8 +300,8 @@
               "kind": "valueSet",
               "values": [
                 "Sala Azul",
-                "Sala 2",
-                "Sala 3"
+                "Sala Verde",
+                "Sala Amarela"
               ]
             }
           }
@@ -310,7 +310,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "b8d38441cacbdb69476901187e2efaf66da371d0076be1b8f09acaeb3921dffc"
+    "storageHash": "ca204f28bb9bd19f3bf82672d05df7c91ab78b3791253d5ea489d1901e28dfcc"
   },
   "execution": {
     "executionHash": "43bf20e8bf58a8241ae2535c17f7a6fa8337ffdd5c26007207045c984cb37131",

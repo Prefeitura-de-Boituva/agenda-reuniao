@@ -1,5 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Fixa o fuso em UTC para a comparação de "horário passado" não depender
+// do fuso da máquina que executa os testes (ex.: UTC-3 no Brasil).
+process.env.TZ = "UTC";
+
+// O vitest não resolve o alias "@/" deste projeto; mockamos o módulo usado
+// pela rota para que a importação funcione sem alterar a configuração.
+vi.mock("@/lib/validations", () => ({
+  getSlotError: () => null,
+  isSlotValido: () => true,
+}));
+
 // Mock Prisma client – same alias used by the app
 vi.mock("@/prisma/db", () => ({
   db: {

@@ -29,20 +29,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Corpo da requisição inválido." }, { status: 400 });
   }
 
-  // Bloquear agendamentos em horário já passado no mesmo dia
-  const isPast = (dateStr: string, timeStr: string): boolean => {
-    const now = new Date();
-    const today = now.toISOString().slice(0, 10);
-    if (dateStr !== today) return false;
-    const [h, m] = timeStr.split(":").map(Number);
-    const minutesNow = now.getHours() * 60 + now.getMinutes();
-    return h * 60 + m < minutesNow;
-  };
-
-  if (isPast(data, horaInicio)) {
-    return Response.json({ error: "Horário já passou no dia atual." }, { status: 400 });
-  }
-
+  const { nome, departamento, sala, data, horaInicio, horaFim } = (body ?? {}) as Record<
     string,
     unknown
   >;
@@ -56,6 +43,20 @@ export async function POST(request: Request) {
     typeof horaFim !== "string"
   ) {
     return Response.json({ error: "Todos os campos são obrigatórios." }, { status: 400 });
+  }
+
+  // Bloquear agendamentos em horário já passado no mesmo dia
+  const isPast = (dateStr: string, timeStr: string): boolean => {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    if (dateStr !== today) return false;
+    const [h, m] = timeStr.split(":").map(Number);
+    const minutesNow = now.getHours() * 60 + now.getMinutes();
+    return h * 60 + m < minutesNow;
+  };
+
+  if (isPast(data, horaInicio)) {
+    return Response.json({ error: "Horário já passou no dia atual." }, { status: 400 });
   }
 
   const slotError = isSlotValido(horaInicio, horaFim)
