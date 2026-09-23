@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'b8d38441cacbdb69476901187e2efaf66da371d0076be1b8f09acaeb3921dffc'>;
+  StorageHashBase<'ca204f28bb9bd19f3bf82672d05df7c91ab78b3791253d5ea489d1901e28dfcc'>;
 export type ExecutionHash =
   ExecutionHashBase<'43bf20e8bf58a8241ae2535c17f7a6fa8337ffdd5c26007207045c984cb37131'>;
 export type ProfileHash =
@@ -254,11 +254,7 @@ export type FieldOutputTypes = {
         | 'Secretaria Municipal Turismo, Juventude e Empreendedorismo'
         | 'Secretaria Municipal Obras Públicas'
         | 'Secretaria Municipal Planejamento Urbano e Habitação';
-<<<<<<< HEAD
-      readonly sala: 'Sala AZul' | 'Sala Verde' | 'Sala Amarela';
-=======
       readonly sala: 'Sala Azul' | 'Sala Verde' | 'Sala Amarela';
->>>>>>> ab0f4558c9df1ae05eb276b326f88b60300fb343
       readonly data: CodecTypes['pg/date-string@1']['output'];
       readonly horaInicio: Varchar<5>;
       readonly horaFim: Varchar<5>;
@@ -280,11 +276,7 @@ export type FieldInputTypes = {
         | 'Secretaria Municipal Turismo, Juventude e Empreendedorismo'
         | 'Secretaria Municipal Obras Públicas'
         | 'Secretaria Municipal Planejamento Urbano e Habitação';
-<<<<<<< HEAD
-      readonly sala: 'Sala AZul' | 'Sala Verde' | 'Sala Amarela';
-=======
       readonly sala: 'Sala Azul' | 'Sala Verde' | 'Sala Amarela';
->>>>>>> ab0f4558c9df1ae05eb276b326f88b60300fb343
       readonly data: CodecTypes['pg/date-string@1']['input'];
       readonly horaInicio: CodecTypes['sql/varchar@1']['input'];
       readonly horaFim: CodecTypes['sql/varchar@1']['input'];
@@ -310,11 +302,7 @@ export type StorageColumnTypes = {
       readonly horaInicio: Varchar<5>;
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly nome: CodecTypes['pg/text@1']['output'];
-<<<<<<< HEAD
-      readonly sala: 'Sala AZul' | 'Sala Verde' | 'Sala Amarela';
-=======
       readonly sala: 'Sala Azul' | 'Sala Verde' | 'Sala Amarela';
->>>>>>> ab0f4558c9df1ae05eb276b326f88b60300fb343
     };
   };
 };
@@ -336,11 +324,7 @@ export type StorageColumnInputTypes = {
       readonly horaInicio: CodecTypes['sql/varchar@1']['input'];
       readonly id: CodecTypes['pg/text@1']['input'];
       readonly nome: CodecTypes['pg/text@1']['input'];
-<<<<<<< HEAD
-      readonly sala: 'Sala AZul' | 'Sala Verde' | 'Sala Amarela';
-=======
       readonly sala: 'Sala Azul' | 'Sala Verde' | 'Sala Amarela';
->>>>>>> ab0f4558c9df1ae05eb276b326f88b60300fb343
     };
   };
 };
@@ -358,11 +342,7 @@ export namespace Models {
       | 'Secretaria Municipal Turismo, Juventude e Empreendedorismo'
       | 'Secretaria Municipal Obras Públicas'
       | 'Secretaria Municipal Planejamento Urbano e Habitação';
-<<<<<<< HEAD
-    sala: 'Sala AZul' | 'Sala Verde' | 'Sala Amarela';
-=======
     sala: 'Sala Azul' | 'Sala Verde' | 'Sala Amarela';
->>>>>>> ab0f4558c9df1ae05eb276b326f88b60300fb343
     data: CodecTypes['pg/date-string@1']['output'];
     horaInicio: Varchar<5>;
     horaFim: Varchar<5>;
@@ -463,11 +443,7 @@ type ContractBase = Omit<
             };
             readonly Sala: {
               readonly kind: 'valueSet';
-<<<<<<< HEAD
-               readonly values: readonly ['Sala AZul', 'Sala Verde', 'Sala Amarela'];
-=======
               readonly values: readonly ['Sala Azul', 'Sala Verde', 'Sala Amarela'];
->>>>>>> ab0f4558c9df1ae05eb276b326f88b60300fb343
             };
           };
         };
@@ -590,15 +566,9 @@ type ContractBase = Omit<
           readonly Sala: {
             readonly codecId: 'pg/text@1';
             readonly members: readonly [
-<<<<<<< HEAD
-               { readonly name: 'SALA_1'; readonly value: 'Sala AZul' },
-               { readonly name: 'SALA_2'; readonly value: 'Sala Verde' },
-               { readonly name: 'SALA_3'; readonly value: 'Sala Amarela' },
-=======
               { readonly name: 'SALA_1'; readonly value: 'Sala Azul' },
               { readonly name: 'SALA_2'; readonly value: 'Sala Verde' },
               { readonly name: 'SALA_3'; readonly value: 'Sala Amarela' },
->>>>>>> ab0f4558c9df1ae05eb276b326f88b60300fb343
             ];
           };
         };

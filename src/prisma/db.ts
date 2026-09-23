@@ -9,7 +9,7 @@ export const db: any = {
          */
         where: (filter: { sala: string; data: string }) => {
           const matched = db.orm.public._store.filter(
-            (a) => a.sala === filter.sala && a.data === filter.data
+            (a: any) => a.sala === filter.sala && a.data === filter.data
           );
           return {
             orderBy: (order: { horaInicio: 'asc' | 'desc' }) => {
