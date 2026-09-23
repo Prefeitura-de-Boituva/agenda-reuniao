@@ -5,11 +5,13 @@ export const db: any = {
       _store: [] as any[],
       Agendamento: {
         /**
-         * Mimics `prisma.agendamento.where({ sala, data }).orderBy({...})`
+         * Mimics `prisma.agendamento.where({ ... })` followed by
+         * `.orderBy(...)`, `.first()` or `.delete()`.
+         * The filter matches any field(s) by strict equality (ex.: { id }, { sala, data }).
          */
-        where: (filter: { sala: string; data: string }) => {
-          const matched = db.orm.public._store.filter(
-            (a: any) => a.sala === filter.sala && a.data === filter.data
+        where: (filter: Record<string, unknown>) => {
+          const matched = db.orm.public._store.filter((a: any) =>
+            Object.entries(filter).every(([key, value]) => a[key] === value)
           );
           return {
             orderBy: (order: { horaInicio: 'asc' | 'desc' }) => {
@@ -19,6 +21,17 @@ export const db: any = {
               });
               // Return a Promise to match Prisma's async API
               return Promise.resolve(sorted);
+            },
+            first: () => Promise.resolve(matched[0] ?? null),
+            delete: async () => {
+              const deleted = matched[0] ?? null;
+              if (deleted) {
+                const index = db.orm.public._store.findIndex(
+                  (a) => a.id === deleted.id
+                );
+                if (index !== -1) db.orm.public._store.splice(index, 1);
+              }
+              return deleted;
             },
           };
         },
@@ -33,4 +46,3 @@ export const db: any = {
     },
   },
 };
-
