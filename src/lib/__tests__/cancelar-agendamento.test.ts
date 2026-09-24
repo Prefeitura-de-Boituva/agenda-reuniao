@@ -7,6 +7,7 @@ process.env.TZ = "UTC";
 // Busca do agendamento é simulada – a rota não precisa de um banco real.
 const agendamentoMock = vi.hoisted(() => ({
   buscarAgendamento: vi.fn(),
+  validarDepartamento: vi.fn(),
 }));
 
 // O "deletar" do mock em memória é simulado para podermos assertar a chamada.
@@ -18,6 +19,7 @@ const dbMock = vi.hoisted(() => {
 
 vi.mock("@/lib/agendamentos", () => ({
   buscarAgendamento: agendamentoMock.buscarAgendamento,
+  validarDepartamento: agendamentoMock.validarDepartamento,
 }));
 
 vi.mock("@/prisma/db", () => ({
@@ -61,6 +63,8 @@ function params(id: string) {
 describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => {
   beforeEach(() => {
     agendamentoMock.buscarAgendamento.mockReset();
+    agendamentoMock.validarDepartamento.mockReset();
+    agendamentoMock.validarDepartamento.mockResolvedValue({ valido: true });
     dbMock.where.mockClear();
     dbMock.deleteAgendamento.mockReset();
     dbMock.deleteAgendamento.mockResolvedValue(agendamento);
@@ -157,6 +161,10 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-20T09:00:00.000Z"));
     agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
+    agendamentoMock.validarDepartamento.mockResolvedValue({
+      valido: false,
+      motivo: "departamento-nao-confere",
+    });
 
     const response = await DELETE(
       buildRequest(agendamento.id, {
@@ -169,6 +177,10 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     expect(await response.json()).toEqual({
       error: "Departamento não autorizado a cancelar este agendamento.",
     });
+    expect(agendamentoMock.validarDepartamento).toHaveBeenCalledWith(
+      agendamento.id,
+      "Secretaria Municipal de Assuntos Jurídicos"
+    );
     expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
   });
 
@@ -190,6 +202,10 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     expect(await response.json()).toEqual({
       message: "Agendamento cancelado com sucesso.",
     });
+    expect(agendamentoMock.validarDepartamento).toHaveBeenCalledWith(
+      agendamento.id,
+      departamentoEquivalente
+    );
     expect(dbMock.where).toHaveBeenCalledWith({ id: agendamento.id });
     expect(dbMock.deleteAgendamento).toHaveBeenCalledTimes(1);
   });

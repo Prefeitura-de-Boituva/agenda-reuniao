@@ -11,7 +11,7 @@ import {
 } from "@/components/ui";
 import { useState, useEffect, useRef } from "react";
 import type { Booking } from "@/types/schedule";
-import { cancelarAgendamento } from "@/lib/apiClient";
+import { cancelarAgendamento, ApiError } from "@/lib/apiClient";
 
 interface CancelarAgendamentoModalProps {
   booking: Booking;
@@ -51,6 +51,14 @@ export function CancelarAgendamentoModal({
       onConfirm(booking.id, booking.date);
       onClose();
     } catch (err) {
+      // 404 = o agendamento não existe (ou nunca existiu) no servidor — ex.:
+      // os bookings de demonstração da grade. Mantém o comportamento original:
+      // remove o agendamento da grade localmente, sem exibir erro.
+      if (err instanceof ApiError && err.status === 404) {
+        onConfirm(booking.id, booking.date);
+        onClose();
+        return;
+      }
       setError(
         err instanceof Error
           ? err.message

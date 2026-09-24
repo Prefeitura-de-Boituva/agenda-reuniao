@@ -1,5 +1,5 @@
-import { buscarAgendamento } from "@/lib/agendamentos";
-import { isMesmoDepartamento, isPastToday } from "@/lib/validations";
+import { buscarAgendamento, validarDepartamento } from "@/lib/agendamentos";
+import { isPastToday } from "@/lib/validations";
 import { db } from "@/prisma/db";
 
 export async function DELETE(
@@ -41,7 +41,8 @@ export async function DELETE(
     }
 
     // 403 – departamento informado não confere com o cadastrado
-    if (!isMesmoDepartamento(agendamento.departamento, departamento)) {
+    const resultado = await validarDepartamento(id, departamento);
+    if (!resultado.valido) {
       return Response.json(
         { error: "Departamento não autorizado a cancelar este agendamento." },
         { status: 403 }
