@@ -47,6 +47,13 @@ export function isPastToday(dateISO: string, time: string): boolean {
   return h * 60 + m < minutesNow;
 }
 
+export function jaPassou(data: string, horaFim: string): boolean {
+  const [year, month, day] = data.split("-").map(Number);
+  const [hour, minute] = horaFim.split(":").map(Number);
+  const fim = new Date(year, month - 1, day, hour, minute);
+  return fim.getTime() < Date.now();
+}
+
 export function getSlotError(inicio: string, fim: string): string | null {
   if (!isHorarioPermitido(inicio)) {
     return `O horário de início deve estar entre ${PERMITTED_START_TIME} e ${PERMITTED_END_TIME}.`;

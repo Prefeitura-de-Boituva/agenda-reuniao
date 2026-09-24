@@ -140,10 +140,10 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
   });
 
-  it("retorna 400 quando o horário do agendamento já passou", async () => {
+  it("retorna 400 quando o horário de fim do agendamento já passou", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-20T11:00:00.000Z"));
-    agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento); // 10:30 < 11:00
+    vi.setSystemTime(new Date("2026-09-20T12:00:00.000Z")); // fim 11:30 < 12:00
+    agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
 
     const response = await DELETE(
       buildRequest(agendamento.id, { departamento: agendamento.departamento }),
@@ -152,9 +152,43 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
-      error: "Horário já passou no dia atual.",
+      error: "Não é possível cancelar reserva já encerrada.",
     });
     expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
+  });
+
+  it("retorna 400 quando a reserva é de um dia anterior (já encerrada)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-21T09:00:00.000Z")); // data 2026-09-20 < hoje
+    agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
+
+    const response = await DELETE(
+      buildRequest(agendamento.id, { departamento: agendamento.departamento }),
+      params(agendamento.id)
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Não é possível cancelar reserva já encerrada.",
+    });
+    expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
+  });
+
+  it("permite cancelar reunião em andamento (antes do horaFim)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-20T11:00:00.000Z")); // entre 10:30 e 11:30
+    agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
+
+    const response = await DELETE(
+      buildRequest(agendamento.id, { departamento: agendamento.departamento }),
+      params(agendamento.id)
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      message: "Agendamento cancelado com sucesso.",
+    });
+    expect(dbMock.deleteAgendamento).toHaveBeenCalledTimes(1);
   });
 
   it("retorna 403 quando o departamento informado não confere", async () => {

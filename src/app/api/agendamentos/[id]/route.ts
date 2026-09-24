@@ -1,5 +1,5 @@
 import { buscarAgendamento, validarDepartamento } from "@/lib/agendamentos";
-import { isPastToday } from "@/lib/validations";
+import { jaPassou } from "@/lib/validations";
 import { db } from "@/prisma/db";
 
 export async function DELETE(
@@ -32,10 +32,10 @@ export async function DELETE(
       return Response.json({ error: "Agendamento não encontrado." }, { status: 404 });
     }
 
-    // 400 – horário já decorrido (não é possível cancelar)
-    if (isPastToday(agendamento.data, agendamento.horaInicio)) {
+    // 400 – reserva já encerrada (data + horaFim já passaram)
+    if (jaPassou(agendamento.data, agendamento.horaFim)) {
       return Response.json(
-        { error: "Horário já passou no dia atual." },
+        { error: "Não é possível cancelar reserva já encerrada." },
         { status: 400 }
       );
     }
