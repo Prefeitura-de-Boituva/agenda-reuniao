@@ -1,21 +1,58 @@
 import type { Booking } from "@/types/schedule";
-import { getMockBookings } from "@/lib/mock-data";
+import { ROOMS } from "@/lib/mock-data";
 
-const MOCK_LATENCY_MS = 400;
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+interface AgendamentoApi {
+  id: string;
+  nome: string;
+  departamento: string;
+  sala: string;
+  data: string;
+  horaInicio: string;
+  horaFim: string;
 }
 
+/**
+ * Busca os agendamentos reais da sala em cada data via GET /api/agendamentos.
+ * A API filtra pelo nome da sala ("Sala Azul"), enquanto a UI usa o id/slug
+ * ("sala-azul"); aqui fazemos a tradução dos dois lados.
+ */
 export async function fetchBookings(
   roomId: string,
   dates: string[]
 ): Promise<Record<string, Booking[]>> {
-  await delay(MOCK_LATENCY_MS);
+  const room = ROOMS.find((r) => r.id === roomId);
+  if (!room) return {};
 
   const result: Record<string, Booking[]> = {};
-  for (const date of dates) {
-    result[date] = getMockBookings(date).filter((b) => b.roomId === roomId);
-  }
+  await Promise.all(
+    dates.map(async (date) => {
+      result[date] = await buscarPorData(room.name, date);
+    })
+  );
   return result;
+}
+
+async function buscarPorData(sala: string, data: string): Promise<Booking[]> {
+  const url = `/api/agendamentos?sala=${encodeURIComponent(sala)}&data=${encodeURIComponent(data)}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+
+    const agendamentos = (await res.json()) as AgendamentoApi[];
+    return agendamentos.map((a) => ({
+      id: a.id,
+      roomId: roomIdPorNome(a.sala),
+      date: a.data,
+      name: a.nome,
+      department: a.departamento,
+      startTime: a.horaInicio,
+      endTime: a.horaFim,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function roomIdPorNome(sala: string): string {
+  return ROOMS.find((r) => r.name === sala)?.id ?? sala;
 }

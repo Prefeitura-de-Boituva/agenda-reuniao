@@ -208,36 +208,6 @@ function BookingFormModal({
 }
 
 
-interface DeleteModalProps {
-  booking: Booking;
-  onConfirm: () => void;
-  onClose: () => void;
-}
-
-function DeleteModal({ booking, onConfirm, onClose }: DeleteModalProps) {
-  return (
-    <Modal open onClose={onClose}>
-      <ModalContent>
-        <ModalHeader>Cancelar Agendamento</ModalHeader>
-        <ModalBody>
-          Tem certeza que deseja cancelar o agendamento de{' '}
-          <strong>{booking.name}</strong> ({booking.department}) das {booking.startTime} às{' '}
-          {booking.endTime}?
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="outline" onClick={onClose}>
-            Não
-          </Button>
-          <Button variant="danger" onClick={onConfirm}>
-            Cancelar agendamento
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
-  );
-}
-
-
 export interface ScheduleGridProps {
   bookings: Record<string, Booking[]>;
   isLoading?: boolean;
@@ -543,9 +513,11 @@ export function ScheduleGrid({
                 }
                 return false;
               }
-              // Success: add booking locally
+              // Success: add booking locally, keeping the server‑generated id
+              // so the cancellation (DELETE /api/agendamentos/[id]) finds it.
+              const created = await res.json();
               onCreateBooking({
-                id: crypto.randomUUID(),
+                id: created.id ?? crypto.randomUUID(),
                 roomId: selectedRoom.id,
                 date: data.data,
                 startTime: data.inicio,
@@ -589,6 +561,7 @@ export function ScheduleGrid({
           booking={deleteTarget}
           onConfirm={(id, date) => {
             onDeleteBooking(id, date);
+            setNotice("Agendamento cancelado com sucesso!");
             setDeleteTarget(null);
           }}
           onClose={() => setDeleteTarget(null)}

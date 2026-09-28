@@ -24,3 +24,20 @@ export async function criarAgendamento(payload: {
   // sucesso → devolve o objeto criado
   return response.json();
 }
+
+export async function cancelarAgendamento(id: string, departamento: string) {
+  const response = await fetch(`/api/agendamentos/${id}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ departamento }),
+  });
+
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error ?? "Erro ao cancelar agendamento");
+  }
+
+  return response.json();
+}
