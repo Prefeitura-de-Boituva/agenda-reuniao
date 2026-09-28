@@ -1,5 +1,5 @@
-import { buscarAgendamento } from "@/lib/agendamentos";
-import { isMesmoDepartamento, isPastToday } from "@/lib/validations";
+import { buscarAgendamento, validarDepartamento } from "@/lib/agendamentos";
+import { jaDecorrido } from "@/lib/validations";
 import { db } from "@/prisma/db";
 
 export async function DELETE(
@@ -33,15 +33,24 @@ export async function DELETE(
     }
 
     // 400 – horário já decorrido (não é possível cancelar)
-    if (isPastToday(agendamento.data, agendamento.horaInicio)) {
+    if (jaDecorrido(agendamento.data, agendamento.horaInicio)) {
       return Response.json(
         { error: "Horário já passou no dia atual." },
         { status: 400 }
       );
     }
 
-    // 403 – departamento informado não confere com o cadastrado
-    if (!isMesmoDepartamento(agendamento.departamento, departamento)) {
+    // 403 – departamento informado não confere com o cadastrado.
+    // A comparação é delegada a `validarDepartamento` (comparação case-insensitive
+    // e sem acentos). O agendamento já buscado é reaproveitado via injeção para
+    // não disparar uma segunda consulta ao banco. A mensagem de erro é genérica
+    // de propósito: não revela o departamento cadastrado na reserva.
+    const validacao = await validarDepartamento(
+      id,
+      departamento,
+      async () => agendamento
+    );
+    if (!validacao.valido) {
       return Response.json(
         { error: "Departamento não autorizado a cancelar este agendamento." },
         { status: 403 }

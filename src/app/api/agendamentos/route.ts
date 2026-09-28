@@ -45,10 +45,14 @@ export async function POST(request: Request) {
     return Response.json({ error: "Todos os campos são obrigatórios." }, { status: 400 });
   }
 
-  // Bloquear agendamentos em horário já passado no mesmo dia
+  // Bloquear agendamentos em horário já passado no mesmo dia.
+  // `data` é uma data de calendário (sem fuso), então o dia corrente precisa ser
+  // montado com os getters locais. Antes usávamos `toISOString()` (UTC) e
+  // comparávamos com `getHours()` (local): em fusos negativos como o UTC-3, entre
+  // 21h e 24h o "hoje" virava o dia seguinte e esta validação era pulada.
   const isPast = (dateStr: string, timeStr: string): boolean => {
     const now = new Date();
-    const today = now.toISOString().slice(0, 10);
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     if (dateStr !== today) return false;
     const [h, m] = timeStr.split(":").map(Number);
     const minutesNow = now.getHours() * 60 + now.getMinutes();

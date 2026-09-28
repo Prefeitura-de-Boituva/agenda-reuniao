@@ -16,9 +16,13 @@ const dbMock = vi.hoisted(() => {
   return { deleteAgendamento, where };
 });
 
-vi.mock("@/lib/agendamentos", () => ({
-  buscarAgendamento: agendamentoMock.buscarAgendamento,
-}));
+// A rota usa a implementação real de `validarDepartamento` (é ela que faz a
+// comparação case-insensitive do departamento). Só a busca é substituída, para
+// não precisar de um banco de verdade.
+vi.mock("@/lib/agendamentos", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/agendamentos")>();
+  return { ...actual, buscarAgendamento: agendamentoMock.buscarAgendamento };
+});
 
 vi.mock("@/prisma/db", () => ({
   db: {
@@ -153,6 +157,30 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
   });
 
+  it("retorna 400 quando o agendamento é de uma data anterior", async () => {
+    // Cobertura nova: `jaDecorrido` também barra datas passadas, e não só o
+    // horário vencido no dia corrente.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-20T09:00:00.000Z"));
+    agendamentoMock.buscarAgendamento.mockResolvedValue({
+      ...agendamento,
+      data: "2026-09-19", // ontem, ainda com horário "futuro" (23:30)
+      horaInicio: "23:30",
+      horaFim: "23:59",
+    });
+
+    const response = await DELETE(
+      buildRequest(agendamento.id, { departamento: agendamento.departamento }),
+      params(agendamento.id)
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Horário já passou no dia atual.",
+    });
+    expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
+  });
+
   it("retorna 403 quando o departamento informado não confere", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-20T09:00:00.000Z"));
@@ -192,5 +220,24 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     });
     expect(dbMock.where).toHaveBeenCalledWith({ id: agendamento.id });
     expect(dbMock.deleteAgendamento).toHaveBeenCalledTimes(1);
+  });
+
+  it("retorna 500 quando a consulta ao banco falha, sem vazar o motivo interno", async () => {
+    agendamentoMock.buscarAgendamento.mockRejectedValue(
+      new Error("connection to server at localhost:5432 refused")
+    );
+
+    const response = await DELETE(
+      buildRequest(agendamento.id, { departamento: agendamento.departamento }),
+      params(agendamento.id)
+    );
+
+    expect(response.status).toBe(500);
+    // A mensagem é genérica: a causa real (host/porta/credencial) não chega ao cliente.
+    expect(await response.json()).toEqual({
+      error: "Erro interno ao cancelar agendamento.",
+    });
+    // Nada é removido quando a leitura falha.
+    expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
   });
 });
