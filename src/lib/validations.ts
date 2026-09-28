@@ -115,3 +115,105 @@ export function getSlotError(inicio: string, fim: string): string | null {
   }
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Validação do corpo da requisição (POST /api/agendamentos)
+//
+// Estas funções são aditivas: não alteram nem substituem nenhum dos validadores
+// acima. Elas existem porque a checagem de tipo feita na rota (typeof === "string")
+// aceita string vazia/branca e formatos inválidos — "7:00", por exemplo, passa
+// da comparação textual de `isHorarioPermitido` ("7" > "0") e seria gravado.
+// ---------------------------------------------------------------------------
+
+/** Campos lidos do corpo do POST /api/agendamentos, na ordem de verificação. */
+export const CAMPOS_AGENDAMENTO = [
+  "nome",
+  "departamento",
+  "sala",
+  "data",
+  "horaInicio",
+  "horaFim",
+] as const;
+
+/** Rótulos usados nas mensagens de erro, mais amigáveis que o nome do campo. */
+const ROTULO_CAMPO: Record<string, string> = {
+  nome: "nome",
+  departamento: "departamento",
+  sala: "sala",
+  data: "data",
+  horaInicio: "horário de início",
+  horaFim: "horário de fim",
+};
+
+/** "HH:MM" com hora em 00–23 e minuto em 00–59. */
+export function isFormatoHorarioValido(hora: string): boolean {
+  const partes = /^(\d{2}):(\d{2})$/.exec(hora);
+  if (!partes) return false;
+  return Number(partes[1]) <= 23 && Number(partes[2]) <= 59;
+}
+
+/**
+ * "YYYY-MM-DD" que também corresponde a uma data real do calendário.
+ *
+ * `new Date(ano, mes - 1, dia)` normaliza datas inexistentes para o dia 0 do mês
+ * seguinte (30 de fevereiro vira 1º de março), então comparar os três
+ * componentes de volta já rejeita datas como "2026-02-30" e "2026-13-01".
+ */
+export function isDataValida(dataISO: string): boolean {
+  const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dataISO);
+  if (!partes) return false;
+  const ano = Number(partes[1]);
+  const mes = Number(partes[2]);
+  const dia = Number(partes[3]);
+  const d = new Date(ano, mes - 1, dia);
+  return (
+    d.getFullYear() === ano && d.getMonth() === mes - 1 && d.getDate() === dia
+  );
+}
+
+/** Horário alinhado na grade de 30 minutos da agenda (minuto :00 ou :30). */
+export function isNaGradeDe30min(hora: string): boolean {
+  if (!isFormatoHorarioValido(hora)) return false;
+  return Number(hora.slice(3, 5)) % 30 === 0;
+}
+
+/**
+ * Valida presença, preenchimento e formato dos campos do corpo do POST.
+ *
+ * Devolve a **primeira** mensagem de erro encontrada (na ordem de
+ * `CAMPOS_AGENDAMENTO`) ou `null` quando o corpo está válido.
+ *
+ * A checagem de tipo já existente na rota roda antes desta e devolve a mensagem
+ * "Todos os campos são obrigatórios."; aqui os campos ausentes não chegam, mas
+ * a função os cobre para ser correta quando usada isoladamente.
+ */
+export function getErroCamposObrigatorios(body: unknown): string | null {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return "Todos os campos são obrigatórios.";
+  }
+  const registro = body as Record<string, unknown>;
+
+  for (const campo of CAMPOS_AGENDAMENTO) {
+    const valor = registro[campo];
+    if (typeof valor !== "string" || valor.trim() === "") {
+      return `O campo ${ROTULO_CAMPO[campo]} é obrigatório.`;
+    }
+  }
+
+  if (!isDataValida(registro.data as string)) {
+    return "Data inválida. Use o formato YYYY-MM-DD.";
+  }
+  if (!isFormatoHorarioValido(registro.horaInicio as string)) {
+    return "Horário de início inválido. Use o formato HH:MM.";
+  }
+  if (!isFormatoHorarioValido(registro.horaFim as string)) {
+    return "Horário de fim inválido. Use o formato HH:MM.";
+  }
+  if (!isNaGradeDe30min(registro.horaInicio as string)) {
+    return "O horário de início deve estar alinhado em blocos de 30 minutos.";
+  }
+  if (!isNaGradeDe30min(registro.horaFim as string)) {
+    return "O horário de fim deve estar alinhado em blocos de 30 minutos.";
+  }
+  return null;
+}

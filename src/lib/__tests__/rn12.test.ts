@@ -6,7 +6,10 @@ process.env.TZ = "UTC";
 
 // O vitest não resolve o alias "@/" deste projeto; mockamos o módulo usado
 // pela rota para que a importação funcione sem alterar a configuração.
+// `getErroCamposObrigatorios` também entra no mock porque a rota agora o
+// importa; devolvendo `null` o teste segue isolado na regra RN12.
 vi.mock("@/lib/validations", () => ({
+  getErroCamposObrigatorios: () => null,
   getSlotError: () => null,
   isSlotValido: () => true,
 }));

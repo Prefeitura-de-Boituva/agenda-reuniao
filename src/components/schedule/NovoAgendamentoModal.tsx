@@ -8,7 +8,7 @@ import {
   Input,
   Button,
 } from "@/components/ui";
-import { isPastToday } from "@/lib/validations";
+import { getSlotError, isDataValida, isPastToday } from "@/lib/validations";
 
 const SALAS = ["Sala Azul", "Sala Verde", "Sala Amarela"];
 
@@ -93,6 +93,12 @@ export function NovoAgendamentoModal({
     if (!nome.trim()) return "Nome é obrigatório";
     if (!departamento) return "Departamento é obrigatório";
     if (fim <= inicio) return "Horário de fim deve ser posterior ao início";
+    // Complemento das verificações acima: reaproveita as mesmas funções usadas
+    // no endpoint (janela 08:00–17:00, duração mínima e fim > início) para que
+    // o formulário e a API falhem com as mesmas mensagens.
+    if (!isDataValida(data)) return "Data inválida. Use o formato YYYY-MM-DD.";
+    const erroSlot = getSlotError(inicio, fim);
+    if (erroSlot) return erroSlot;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

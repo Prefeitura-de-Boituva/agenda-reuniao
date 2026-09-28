@@ -18,7 +18,7 @@ function cleanStore() {
 }
 
 import { temConflito } from "../../../lib/conflict";
-import { getSlotError, isSlotValido } from "@/lib/validations";
+import { getErroCamposObrigatorios, getSlotError, isSlotValido } from "@/lib/validations";
 import { db } from "@/prisma/db";
 
 export async function POST(request: Request) {
@@ -43,6 +43,16 @@ export async function POST(request: Request) {
     typeof horaFim !== "string"
   ) {
     return Response.json({ error: "Todos os campos são obrigatórios." }, { status: 400 });
+  }
+
+  // Complemento da checagem de tipos acima: rejeita string vazia ou composta
+  // apenas por espaços, `data` fora de YYYY-MM-DD, horário fora de HH:MM e
+  // horário fora da grade de 30 minutos da agenda. Roda depois do bloco acima
+  // para que a mensagem "Todos os campos são obrigatórios." continue sendo a
+  // resposta para campo ausente ou de tipo errado.
+  const erroCampos = getErroCamposObrigatorios(body);
+  if (erroCampos) {
+    return Response.json({ error: erroCampos }, { status: 400 });
   }
 
   // Bloquear agendamentos em horário já passado no mesmo dia.
@@ -96,7 +106,17 @@ export async function POST(request: Request) {
     criadoEm: new Date().toISOString(),
   };
 
-  await db.orm.public.Agendamento.create(novoAgendamento);
+  // Persist the new agendamento. Falha de infraestrutura no banco não pode
+  // escapar como erro não tratado: devolvemos 500 com a mesma forma de erro
+  // usada pelo handler GET.
+  try {
+    await db.orm.public.Agendamento.create(novoAgendamento);
+  } catch {
+    return Response.json(
+      { error: "Erro interno ao criar agendamento." },
+      { status: 500 }
+    );
+  }
 
   return Response.json(novoAgendamento, { status: 201 });
 }
