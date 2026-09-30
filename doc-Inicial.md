@@ -82,13 +82,17 @@
 
 **Consequência observada**
 
-- Com a grade de 30 minutos **e** a exigência de `fim > início`, o menor delta possível é de 30 minutos. Isso torna a regra `isDuracaoMinima` **inalcançável pela rota**: ela só é exercitada pelo caminho que produz horários em `:29` (a grade de edição) epelos testes unitários.
+- Com a grade de 30 minutos **e** a exigência de `fim > início`, o menor delta possível é de 30 minutos. Isso torna a regra `isDuracaoMinima` **inalcançável pela rota**: ela não é o que impede uma reserva curta, e sim a grade combinada com `fim > início`. A função continua exercitada pelo formulário de edição, que monta o horário de fim a partir da grade visual.
 
-**Duração mínima: 29 min, não 30**
+**Duração mínima: 30 minutos**
 
-- A especificação original pedia duração mínima de **30 minutos**, mas `MIN_DURATION_MINUTES` vale **29** (`src/lib/validations.ts`). A causa é o hack em `src/lib/schedule.ts:14`, em que o slot das `:30` termina em `:29` (10:30–10:29) para o comparador `getBookingStatus` marcar o bloco visualmente; o commit `1d189eb` reduziu a constante para 29 para que um bloco de 30 minutos não fosse rejeitado.
-- **Esta entrega não altera esse comportamento.** Corrigir a raiz exige desfazer o hack do `:29` (alterando a grade visual e o formulário de edição), o que é uma mudança de escopo própria.
+- A duração mínima é de **30 minutos** (`MIN_DURATION_MINUTES = 30`, `src/lib/validations.ts`), conforme a especificação.
+- Anteriormente a constante valia **29**. A causa era um hack em `generateTimeSlots` (`src/lib/schedule.ts`), em que o slot das `:30` era encurtado em um minuto e terminava em `:59` (10:30–10:59, isto é, 29 minutos). O desvio foi introduzido apenas para que um bloco de 30 minutos não fosse rejeitado por `isDuracaoMinima`.
+- O hack era **desnecessário**: `getBookingStatus` compara com `>=`, que já trata a igualdade (uma reserva 10:00–10:30 casa com o slot 10:00–10:30). Ele não era exigido nem pelo marcador visual da grade nem pela detecção de conflito.
+- A grade passou a usar `SLOT_MINUTES` em todos os blocos, com a soma em minutos totais para que o último slot do dia feche em **17:00** (16:30–17:00) em vez de transbordar para 17:30. O resultado é idêntico à grade do formulário de criação (`SLOTS_INICIO`/`SLOTS_FIM`, `src/components/schedule/NovoAgendamentoModal.tsx`): 18 slots por dia, de 08:00 a 16:30, cada um com 30 minutos.
+- **Nenhuma funcionalidade foi removida.** A quantidade de slots, o layout, as interações e a detecção de conflito seguem iguais; apenas o horário de fim exibido do bloco das `:30` passou de `:59` para `:00`, deixando de ser um valor que nunca existiu no banco.
 
 **Testes**
 
 - `src/lib/__tests__/validations.test.ts` referencia a constante `MIN_DURATION_MINUTES` exportada, para não depender do número.
+- `src/lib/__tests__/schedule.test.ts` trava a grade: 18 slots, 30 minutos cada, contiguidade, último slot fechando em 17:00 e o guard de que **todo slot isolado passa em `isSlotValido`** (regressão do `:59`).
