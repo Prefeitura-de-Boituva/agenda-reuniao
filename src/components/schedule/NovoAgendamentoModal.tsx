@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Modal,
   ModalHeader,
@@ -8,20 +8,8 @@ import {
   Input,
   Button,
 } from "@/components/ui";
+import { DEPARTAMENTOS, SALAS } from "@/lib/agendamentoOpcoes";
 import { getSlotError, isDataValida, isPastToday } from "@/lib/validations";
-
-const SALAS = ["Sala Azul", "Sala Verde", "Sala Amarela"];
-
-const DEPARTAMENTOS = [
-  "Financeiro",
-  "RH",
-  "Marketing",
-  "TI",
-  "Operações",
-  "Vendas",
-  "Legal",
-  "Administração",
-];
 
 const gerarSlotsInicio = () => {
   const slots: string[] = [];
@@ -78,16 +66,6 @@ export function NovoAgendamentoModal({
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Previously we copied externalError into internal error state, which caused duplicate messages.
-    // Now we rely solely on the externalError prop for display (handled by parent).
-  }, [externalError]);
-  useEffect(() => {
-    const index = SLOTS_INICIO.indexOf(inicio);
-    const novoFim = SLOTS_FIM[index] ?? SLOTS_FIM[SLOTS_FIM.length - 1];
-    if (fim <= inicio) setFim(novoFim);
-  }, [inicio, fim]);
-
   const validar = () => {
     if (isPastToday(data, inicio)) return "Horário já passou no dia atual.";
     if (!nome.trim()) return "Nome é obrigatório";
@@ -115,7 +93,7 @@ export function NovoAgendamentoModal({
       if (result) {
         onClose();
       }
-    } catch (e) {
+    } catch {
       // error is handled by parent via externalError
     } finally {
       setLoading(false);
@@ -163,7 +141,15 @@ export function NovoAgendamentoModal({
                 id="inicio-select"
                 className="flex h-10 w-full rounded-lg border bg-white px-3 text-body text-neutral-900 focus:outline-none focus:ring-2 focus:border-primary focus:ring-primary-100"
                 value={inicio}
-                onChange={(e) => setInicio(e.target.value)}
+                onChange={(e) => {
+                  const novoInicio = e.target.value;
+                  setInicio(novoInicio);
+                  // Mantém o fim sempre posterior ao início; se o início passou
+                  // do fim atual, alinha o fim ao próximo bloco de 30 min.
+                  const index = SLOTS_INICIO.indexOf(novoInicio);
+                  const novoFim = SLOTS_FIM[index] ?? SLOTS_FIM[SLOTS_FIM.length - 1];
+                  if (fim <= novoInicio) setFim(novoFim);
+                }}
               >
                 {SLOTS_INICIO.map((t) => (
                   <option key={t} value={t}>

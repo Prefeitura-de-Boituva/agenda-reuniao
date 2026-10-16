@@ -1,3 +1,5 @@
+import { isDepartamentoValido, isSalaValida } from "./agendamentoOpcoes";
+
 export const PERMITTED_START_TIME = "08:00";
 export const PERMITTED_END_TIME = "17:00";
 export const MIN_DURATION_MINUTES = 30;
@@ -214,6 +216,12 @@ export function getErroCamposObrigatorios(body: unknown): string | null {
   }
   if (!isNaGradeDe30min(registro.horaFim as string)) {
     return "O horário de fim deve estar alinhado em blocos de 30 minutos.";
+  }
+  if (!isDepartamentoValido(registro.departamento as string)) {
+    return "Departamento inválido.";
+  }
+  if (!isSalaValida(registro.sala as string)) {
+    return "Sala inválida.";
   }
   return null;
 }

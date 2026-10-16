@@ -306,7 +306,7 @@ describe("isNaGradeDe30min", () => {
 describe("getErroCamposObrigatorios", () => {
   const corpoValido = {
     nome: "Maria",
-    departamento: "RH",
+    departamento: "Secretaria Municipal Fazenda, Desenvolvimento Econômico e Finanças",
     sala: "Sala Azul",
     data: "2026-09-21",
     horaInicio: "10:00",
@@ -381,5 +381,17 @@ describe("getErroCamposObrigatorios", () => {
     expect(
       getErroCamposObrigatorios({ ...corpoValido, nome: "", data: "xx" })
     ).toBe("O campo nome é obrigatório.");
+  });
+
+  it("rejeita departamento fora do enum do contrato", () => {
+    expect(
+      getErroCamposObrigatorios({ ...corpoValido, departamento: "RH" })
+    ).toBe("Departamento inválido.");
+  });
+
+  it("rejeita sala fora do enum do contrato", () => {
+    expect(getErroCamposObrigatorios({ ...corpoValido, sala: "Sala Roxa" })).toBe(
+      "Sala inválida."
+    );
   });
 });

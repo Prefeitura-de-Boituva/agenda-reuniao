@@ -1,23 +1,4 @@
-function normalizeTime(time: string): string {
-  const [h, m] = time.split(":").map(Number);
-  const total = h * 60 + m;
-  const rounded = Math.round(total / 30) * 30; // nearest 30 min
-  const newH = Math.floor(rounded / 60);
-  const newM = rounded % 60;
-  return `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
-}
-
-// Clean existing in‑memory records so that horaFim ends in :00 or :30
-function cleanStore() {
-  if (!db?.orm?.public?._store) return;
-  db.orm.public._store = db.orm.public._store.map((a: any) => ({
-    ...a,
-    horaFim: normalizeTime(a.horaFim),
-    horaInicio: normalizeTime(a.horaInicio),
-  }));
-}
-
-import { temConflito } from "../../../lib/conflict";
+import { temConflito } from "@/lib/conflict";
 import { getErroCamposObrigatorios, getSlotError, isSlotValido } from "@/lib/validations";
 import { db } from "@/prisma/db";
 
@@ -80,9 +61,6 @@ export async function POST(request: Request) {
     return Response.json({ error: slotError }, { status: 400 });
   }
 
-  // Clean store before any operation to ensure times are on 30‑minute boundaries
-  cleanStore();
-
   // Verifica conflito de horário antes de criar o agendamento
   const conflito = await temConflito(sala, data, horaInicio, horaFim);
 
@@ -139,7 +117,7 @@ export async function GET(request: Request): Promise<Response> {
       data,
     }).orderBy({ horaInicio: 'asc' });
     return Response.json(agendamentos, { status: 200 });
-  } catch (e) {
+  } catch {
     return Response.json(
       { error: 'Erro interno ao buscar agendamentos.' },
       { status: 500 }
