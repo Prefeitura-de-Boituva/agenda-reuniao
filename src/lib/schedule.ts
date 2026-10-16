@@ -11,8 +11,20 @@ export function generateTimeSlots(): Array<{ startTime: string; endTime: string 
   for (let hour = OPENING_HOUR; hour < CLOSING_HOUR; hour++) {
     for (let minutes = 0; minutes < 60; minutes += SLOT_MINUTES) {
       const start = `${String(hour).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-      const endMinutes = minutes === 0 ? minutes + 30 : minutes + 29;
-      const end = `${String(hour).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}`;
+      // Cada bloco dura exatamente SLOT_MINUTES. O código anterior encurtava em
+      // um minuto o slot das `:30` (`minutes + 29`), fazendo-o terminar em
+      // `:59` — 10:30–10:59, ou seja, 29 minutos. O desvio era desnecessário:
+      // `getBookingStatus` compara com `>=`, que já trata a igualdade
+      // (10:00–10:30 casa com o slot 10:00–10:30). Ele só existia para que
+      // `isDuracaoMinima` aceitasse um bloco de 30 minutos, o que obrigava
+      // `MIN_DURATION_MINUTES` a valer 29 em vez de 30.
+      //
+      // A soma é feita em minutos totais para que o último slot do dia feche
+      // em 17:00 (16:30–17:00) em vez de transbordar para 17:30.
+      const endTotal = hour * 60 + minutes + SLOT_MINUTES;
+      const end = `${String(Math.floor(endTotal / 60)).padStart(2, "0")}:${String(
+        endTotal % 60
+      ).padStart(2, "0")}`;
       slots.push({ startTime: start, endTime: end });
     }
   }

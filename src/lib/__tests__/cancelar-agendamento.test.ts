@@ -7,7 +7,6 @@ process.env.TZ = "UTC";
 // Busca do agendamento é simulada – a rota não precisa de um banco real.
 const agendamentoMock = vi.hoisted(() => ({
   buscarAgendamento: vi.fn(),
-  validarDepartamento: vi.fn(),
 }));
 
 // O "deletar" do mock em memória é simulado para podermos assertar a chamada.
@@ -17,10 +16,13 @@ const dbMock = vi.hoisted(() => {
   return { deleteAgendamento, where };
 });
 
-vi.mock("@/lib/agendamentos", () => ({
-  buscarAgendamento: agendamentoMock.buscarAgendamento,
-  validarDepartamento: agendamentoMock.validarDepartamento,
-}));
+// A rota usa a implementação real de `validarDepartamento` (é ela que faz a
+// comparação case-insensitive do departamento). Só a busca é substituída, para
+// não precisar de um banco de verdade.
+vi.mock("@/lib/agendamentos", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/agendamentos")>();
+  return { ...actual, buscarAgendamento: agendamentoMock.buscarAgendamento };
+});
 
 vi.mock("@/prisma/db", () => ({
   db: {
@@ -63,8 +65,6 @@ function params(id: string) {
 describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => {
   beforeEach(() => {
     agendamentoMock.buscarAgendamento.mockReset();
-    agendamentoMock.validarDepartamento.mockReset();
-    agendamentoMock.validarDepartamento.mockResolvedValue({ valido: true });
     dbMock.where.mockClear();
     dbMock.deleteAgendamento.mockReset();
     dbMock.deleteAgendamento.mockResolvedValue(agendamento);
@@ -98,7 +98,7 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     });
   });
 
-  it("retorna 400 quando o departamento informado é vazio", async () => {
+  it("retorna 400 quando o departamento é uma string vazia", async () => {
     const response = await DELETE(
       buildRequest("abc-123", { departamento: "   " }),
       params("abc-123")
@@ -114,23 +114,8 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     agendamentoMock.buscarAgendamento.mockResolvedValue(null);
 
     const response = await DELETE(
-      buildRequest("id-inexistente", { departamento: "Qualquer" }),
-      params("id-inexistente")
-    );
-
-    expect(response.status).toBe(404);
-    expect(await response.json()).toEqual({
-      error: "Agendamento não encontrado.",
-    });
-  });
-
-  it("retorna 404 quando o agendamento já foi cancelado (registro removido)", async () => {
-    // Depois de cancelado, o registro é removido → a segunda tentativa vira 404.
-    agendamentoMock.buscarAgendamento.mockResolvedValue(null);
-
-    const response = await DELETE(
-      buildRequest(agendamento.id, { departamento: agendamento.departamento }),
-      params(agendamento.id)
+      buildRequest("inexistente", { departamento: "Qualquer" }),
+      params("inexistente")
     );
 
     expect(response.status).toBe(404);
@@ -159,7 +144,7 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
 
   it("retorna 400 quando a reserva é de um dia anterior (já encerrada)", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-21T09:00:00.000Z")); // data 2026-09-20 < hoje
+    vi.setSystemTime(new Date("2026-09-21T09:00:00.000Z")); // dia seguinte
     agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
 
     const response = await DELETE(
@@ -174,7 +159,7 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
   });
 
-  it("permite cancelar reunião em andamento (antes do horaFim)", async () => {
+  it("retorna 200 quando a reunião está em andamento (antes do horaFim)", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-20T11:00:00.000Z")); // entre 10:30 e 11:30
     agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
@@ -195,10 +180,6 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-20T09:00:00.000Z"));
     agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
-    agendamentoMock.validarDepartamento.mockResolvedValue({
-      valido: false,
-      motivo: "departamento-nao-confere",
-    });
 
     const response = await DELETE(
       buildRequest(agendamento.id, {
@@ -211,10 +192,6 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     expect(await response.json()).toEqual({
       error: "Departamento não autorizado a cancelar este agendamento.",
     });
-    expect(agendamentoMock.validarDepartamento).toHaveBeenCalledWith(
-      agendamento.id,
-      "Secretaria Municipal de Assuntos Jurídicos"
-    );
     expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
   });
 
@@ -223,7 +200,7 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     vi.setSystemTime(new Date("2026-09-20T09:00:00.000Z")); // 10:30 ainda no futuro
     agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
 
-    // Departamentos equivalentes (case‑insensitive e sem acentos) devem validar.
+    // Departamentos equivalentes (case-insensitive e sem acentos) devem validar.
     const departamentoEquivalente =
       "SECRETARIA MUNICIPAL FAZENDA, DESENVOLVIMENTO ECONOMICO E FINANCAS";
 
@@ -236,11 +213,21 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     expect(await response.json()).toEqual({
       message: "Agendamento cancelado com sucesso.",
     });
-    expect(agendamentoMock.validarDepartamento).toHaveBeenCalledWith(
-      agendamento.id,
-      departamentoEquivalente
-    );
     expect(dbMock.where).toHaveBeenCalledWith({ id: agendamento.id });
     expect(dbMock.deleteAgendamento).toHaveBeenCalledTimes(1);
+  });
+
+  it("retorna 500 quando a consulta ao banco falha", async () => {
+    agendamentoMock.buscarAgendamento.mockRejectedValue(new Error("falha"));
+
+    const response = await DELETE(
+      buildRequest(agendamento.id, { departamento: agendamento.departamento }),
+      params(agendamento.id)
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: "Erro interno ao cancelar agendamento.",
+    });
   });
 });

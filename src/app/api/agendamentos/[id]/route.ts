@@ -32,7 +32,9 @@ export async function DELETE(
       return Response.json({ error: "Agendamento não encontrado." }, { status: 404 });
     }
 
-    // 400 – reserva já encerrada (data + horaFim já passaram)
+    // 400 – reserva já encerrada: bloqueia somente quando o horário de FIM já
+    // passou. Uma reunião em andamento (agora entre horaInicio e horaFim) ainda
+    // pode ser cancelada. Critério da issue #20.
     if (jaPassou(agendamento.data, agendamento.horaFim)) {
       return Response.json(
         { error: "Não é possível cancelar reserva já encerrada." },
@@ -40,9 +42,17 @@ export async function DELETE(
       );
     }
 
-    // 403 – departamento informado não confere com o cadastrado
-    const resultado = await validarDepartamento(id, departamento);
-    if (!resultado.valido) {
+    // 403 – departamento informado não confere com o cadastrado.
+    // A comparação é delegada a `validarDepartamento` (comparação case-insensitive
+    // e sem acentos). O agendamento já buscado é reaproveitado via injeção para
+    // não disparar uma segunda consulta ao banco. A mensagem de erro é genérica
+    // de propósito: não revela o departamento cadastrado na reserva.
+    const validacao = await validarDepartamento(
+      id,
+      departamento,
+      async () => agendamento
+    );
+    if (!validacao.valido) {
       return Response.json(
         { error: "Departamento não autorizado a cancelar este agendamento." },
         { status: 403 }

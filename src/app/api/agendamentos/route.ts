@@ -1,24 +1,5 @@
-function normalizeTime(time: string): string {
-  const [h, m] = time.split(":").map(Number);
-  const total = h * 60 + m;
-  const rounded = Math.round(total / 30) * 30; // nearest 30 min
-  const newH = Math.floor(rounded / 60);
-  const newM = rounded % 60;
-  return `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
-}
-
-// Clean existing in‑memory records so that horaFim ends in :00 or :30
-function cleanStore() {
-  if (!db?.orm?.public?._store) return;
-  db.orm.public._store = db.orm.public._store.map((a: any) => ({
-    ...a,
-    horaFim: normalizeTime(a.horaFim),
-    horaInicio: normalizeTime(a.horaInicio),
-  }));
-}
-
-import { temConflito } from "../../../lib/conflict";
-import { getSlotError, isSlotValido } from "@/lib/validations";
+import { temConflito } from "@/lib/conflict";
+import { getErroCamposObrigatorios, getSlotError, isSlotValido } from "@/lib/validations";
 import { db } from "@/prisma/db";
 
 export async function POST(request: Request) {
@@ -45,10 +26,24 @@ export async function POST(request: Request) {
     return Response.json({ error: "Todos os campos são obrigatórios." }, { status: 400 });
   }
 
-  // Bloquear agendamentos em horário já passado no mesmo dia
+  // Complemento da checagem de tipos acima: rejeita string vazia ou composta
+  // apenas por espaços, `data` fora de YYYY-MM-DD, horário fora de HH:MM e
+  // horário fora da grade de 30 minutos da agenda. Roda depois do bloco acima
+  // para que a mensagem "Todos os campos são obrigatórios." continue sendo a
+  // resposta para campo ausente ou de tipo errado.
+  const erroCampos = getErroCamposObrigatorios(body);
+  if (erroCampos) {
+    return Response.json({ error: erroCampos }, { status: 400 });
+  }
+
+  // Bloquear agendamentos em horário já passado no mesmo dia.
+  // `data` é uma data de calendário (sem fuso), então o dia corrente precisa ser
+  // montado com os getters locais. Antes usávamos `toISOString()` (UTC) e
+  // comparávamos com `getHours()` (local): em fusos negativos como o UTC-3, entre
+  // 21h e 24h o "hoje" virava o dia seguinte e esta validação era pulada.
   const isPast = (dateStr: string, timeStr: string): boolean => {
     const now = new Date();
-    const today = now.toISOString().slice(0, 10);
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     if (dateStr !== today) return false;
     const [h, m] = timeStr.split(":").map(Number);
     const minutesNow = now.getHours() * 60 + now.getMinutes();
@@ -65,9 +60,6 @@ export async function POST(request: Request) {
   if (slotError) {
     return Response.json({ error: slotError }, { status: 400 });
   }
-
-  // Clean store before any operation to ensure times are on 30‑minute boundaries
-  cleanStore();
 
   // Verifica conflito de horário antes de criar o agendamento
   const conflito = await temConflito(sala, data, horaInicio, horaFim);
@@ -92,7 +84,17 @@ export async function POST(request: Request) {
     criadoEm: new Date().toISOString(),
   };
 
-  await db.orm.public.Agendamento.create(novoAgendamento);
+  // Persist the new agendamento. Falha de infraestrutura no banco não pode
+  // escapar como erro não tratado: devolvemos 500 com a mesma forma de erro
+  // usada pelo handler GET.
+  try {
+    await db.orm.public.Agendamento.create(novoAgendamento);
+  } catch {
+    return Response.json(
+      { error: "Erro interno ao criar agendamento." },
+      { status: 500 }
+    );
+  }
 
   return Response.json(novoAgendamento, { status: 201 });
 }
@@ -115,7 +117,7 @@ export async function GET(request: Request): Promise<Response> {
       data,
     }).orderBy({ horaInicio: 'asc' });
     return Response.json(agendamentos, { status: 200 });
-  } catch (e) {
+  } catch {
     return Response.json(
       { error: 'Erro interno ao buscar agendamentos.' },
       { status: 500 }
