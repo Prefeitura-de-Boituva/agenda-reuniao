@@ -12,6 +12,7 @@
     "test:run": "vitest run",
     "postinstall": "prisma skills sync || exit 0",
     "contract:emit": "prisma contract emit",
+    "seed": "node src/prisma/seed.ts",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "test:e2e": "cypress run"
