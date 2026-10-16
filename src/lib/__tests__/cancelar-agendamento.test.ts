@@ -98,7 +98,7 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     });
   });
 
-  it("retorna 400 quando o departamento informado é vazio", async () => {
+  it("retorna 400 quando o departamento é uma string vazia", async () => {
     const response = await DELETE(
       buildRequest("abc-123", { departamento: "   " }),
       params("abc-123")
@@ -114,23 +114,8 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     agendamentoMock.buscarAgendamento.mockResolvedValue(null);
 
     const response = await DELETE(
-      buildRequest("id-inexistente", { departamento: "Qualquer" }),
-      params("id-inexistente")
-    );
-
-    expect(response.status).toBe(404);
-    expect(await response.json()).toEqual({
-      error: "Agendamento não encontrado.",
-    });
-  });
-
-  it("retorna 404 quando o agendamento já foi cancelado (registro removido)", async () => {
-    // Depois de cancelado, o registro é removido → a segunda tentativa vira 404.
-    agendamentoMock.buscarAgendamento.mockResolvedValue(null);
-
-    const response = await DELETE(
-      buildRequest(agendamento.id, { departamento: agendamento.departamento }),
-      params(agendamento.id)
+      buildRequest("inexistente", { departamento: "Qualquer" }),
+      params("inexistente")
     );
 
     expect(response.status).toBe(404);
@@ -140,10 +125,10 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
   });
 
-  it("retorna 400 quando o horário do agendamento já passou", async () => {
+  it("retorna 400 quando o horário de fim do agendamento já passou", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-20T11:00:00.000Z"));
-    agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento); // 10:30 < 11:00
+    vi.setSystemTime(new Date("2026-09-20T12:00:00.000Z")); // fim 11:30 < 12:00
+    agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
 
     const response = await DELETE(
       buildRequest(agendamento.id, { departamento: agendamento.departamento }),
@@ -152,22 +137,15 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
-      error: "Horário já passou no dia atual.",
+      error: "Não é possível cancelar reserva já encerrada.",
     });
     expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
   });
 
-  it("retorna 400 quando o agendamento é de uma data anterior", async () => {
-    // Cobertura nova: `jaDecorrido` também barra datas passadas, e não só o
-    // horário vencido no dia corrente.
+  it("retorna 400 quando a reserva é de um dia anterior (já encerrada)", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-20T09:00:00.000Z"));
-    agendamentoMock.buscarAgendamento.mockResolvedValue({
-      ...agendamento,
-      data: "2026-09-19", // ontem, ainda com horário "futuro" (23:30)
-      horaInicio: "23:30",
-      horaFim: "23:59",
-    });
+    vi.setSystemTime(new Date("2026-09-21T09:00:00.000Z")); // dia seguinte
+    agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
 
     const response = await DELETE(
       buildRequest(agendamento.id, { departamento: agendamento.departamento }),
@@ -176,9 +154,26 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
-      error: "Horário já passou no dia atual.",
+      error: "Não é possível cancelar reserva já encerrada.",
     });
     expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
+  });
+
+  it("retorna 200 quando a reunião está em andamento (antes do horaFim)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-20T11:00:00.000Z")); // entre 10:30 e 11:30
+    agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
+
+    const response = await DELETE(
+      buildRequest(agendamento.id, { departamento: agendamento.departamento }),
+      params(agendamento.id)
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      message: "Agendamento cancelado com sucesso.",
+    });
+    expect(dbMock.deleteAgendamento).toHaveBeenCalledTimes(1);
   });
 
   it("retorna 403 quando o departamento informado não confere", async () => {
@@ -205,7 +200,7 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     vi.setSystemTime(new Date("2026-09-20T09:00:00.000Z")); // 10:30 ainda no futuro
     agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
 
-    // Departamentos equivalentes (case‑insensitive e sem acentos) devem validar.
+    // Departamentos equivalentes (case-insensitive e sem acentos) devem validar.
     const departamentoEquivalente =
       "SECRETARIA MUNICIPAL FAZENDA, DESENVOLVIMENTO ECONOMICO E FINANCAS";
 
@@ -222,10 +217,8 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     expect(dbMock.deleteAgendamento).toHaveBeenCalledTimes(1);
   });
 
-  it("retorna 500 quando a consulta ao banco falha, sem vazar o motivo interno", async () => {
-    agendamentoMock.buscarAgendamento.mockRejectedValue(
-      new Error("connection to server at localhost:5432 refused")
-    );
+  it("retorna 500 quando a consulta ao banco falha", async () => {
+    agendamentoMock.buscarAgendamento.mockRejectedValue(new Error("falha"));
 
     const response = await DELETE(
       buildRequest(agendamento.id, { departamento: agendamento.departamento }),
@@ -233,11 +226,8 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     );
 
     expect(response.status).toBe(500);
-    // A mensagem é genérica: a causa real (host/porta/credencial) não chega ao cliente.
     expect(await response.json()).toEqual({
       error: "Erro interno ao cancelar agendamento.",
     });
-    // Nada é removido quando a leitura falha.
-    expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
   });
 });

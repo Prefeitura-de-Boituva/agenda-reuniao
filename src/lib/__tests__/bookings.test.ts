@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { fetchBookings } from "../bookings";
+import { getMockBookings } from "../mock-data";
 
 const agendamentoFazenda = {
   id: "abc-123",
@@ -12,12 +13,16 @@ const agendamentoFazenda = {
   criadoEm: "2026-09-19T10:00:00.000Z",
 };
 
+function mockDaSalaAzul(date: string) {
+  return getMockBookings(date).filter((b) => b.roomId === "sala-azul");
+}
+
 describe("fetchBookings", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("consome GET /api/agendamentos com sala (nome) e data e mapeia para Booking", async () => {
+  it("mescla os agendamentos de demonstração da grade com os reais da API", async () => {
     const fetchMock = vi.fn(async () =>
       new Response(JSON.stringify([agendamentoFazenda]), { status: 200 })
     );
@@ -29,7 +34,8 @@ describe("fetchBookings", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/agendamentos?sala=Sala%20Azul&data=2026-09-20"
     );
-    expect(resultado["2026-09-20"]).toEqual([
+    const esperado = [
+      ...mockDaSalaAzul("2026-09-20"),
       {
         id: "abc-123",
         roomId: "sala-azul",
@@ -39,10 +45,11 @@ describe("fetchBookings", () => {
         startTime: "10:30",
         endTime: "11:30",
       },
-    ]);
+    ].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    expect(resultado["2026-09-20"]).toEqual(esperado);
   });
 
-  it("retorna lista vazia quando a API responde com erro", async () => {
+  it("mantém os agendamentos de demonstração na grade quando a API responde erro", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response("{\"error\":\"...\"}", { status: 500 }))
@@ -50,10 +57,10 @@ describe("fetchBookings", () => {
 
     const resultado = await fetchBookings("sala-azul", ["2026-09-20"]);
 
-    expect(resultado["2026-09-20"]).toEqual([]);
+    expect(resultado["2026-09-20"]).toEqual(mockDaSalaAzul("2026-09-20"));
   });
 
-  it("retorna lista vazia quando a sala não existe", async () => {
+  it("retorna objeto vazio quando a sala não existe", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 

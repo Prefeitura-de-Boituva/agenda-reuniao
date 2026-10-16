@@ -1,3 +1,24 @@
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+async function lerErro(response: Response, fallback: string): Promise<never> {
+  let message = fallback;
+  try {
+    const data = await response.json();
+    if (typeof data?.error === "string") message = data.error;
+  } catch {
+    // corpo não-JSON → usa a mensagem padrão
+  }
+  throw new ApiError(response.status, message);
+}
+
 export async function criarAgendamento(payload: {
   nome: string;
   departamento: string;
@@ -15,10 +36,8 @@ export async function criarAgendamento(payload: {
   });
 
   if (!response.ok) {
-    // status not 2xx → lê o JSON de erro
-    const data = await response.json();
-    // lança com a mensagem devolvida pelo servidor
-    throw new Error(data.error ?? 'Erro ao criar agendamento');
+    // status not 2xx → lê o JSON de erro e lança ApiError com status+mensagem
+    await lerErro(response, "Erro ao criar agendamento");
   }
 
   // sucesso → devolve o objeto criado
@@ -35,8 +54,7 @@ export async function cancelarAgendamento(id: string, departamento: string) {
   });
 
   if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.error ?? "Erro ao cancelar agendamento");
+    await lerErro(response, "Erro ao cancelar agendamento");
   }
 
   return response.json();
