@@ -509,8 +509,10 @@ export function ScheduleGrid({
               });
               if (!res.ok) {
                 const err = await res.json();
-                if (res.status === 409 && err?.error) {
+                if (err?.error) {
                   setCreateError(err.error);
+                } else if (res.status === 409) {
+                  setCreateError('Horário conflita com agendamento existente');
                 } else {
                   setCreateError('Horário indisponível para esta sala na data selecionada');
                 }
