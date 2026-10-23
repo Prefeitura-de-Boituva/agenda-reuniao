@@ -12,6 +12,11 @@ vi.mock("@/lib/validations", () => ({
   getErroCamposObrigatorios: () => null,
   getSlotError: () => null,
   isSlotValido: () => true,
+  // A rota também importa a RN16; devolver `false` mantém este teste isolado
+  // na regra RN12.
+  isDataPassada: () => false,
+  MSG_DATA_PASSADA:
+    "Erro 400: Não é possível agendar para uma data passada.",
 }));
 
 // Mock Prisma client – same alias used by the app

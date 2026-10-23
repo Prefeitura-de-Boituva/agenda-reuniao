@@ -9,7 +9,14 @@ import {
   Button,
 } from "@/components/ui";
 import { DEPARTAMENTOS, SALAS } from "@/lib/agendamentoOpcoes";
-import { getSlotError, isDataValida, isPastToday } from "@/lib/validations";
+import { toISODate } from "@/lib/schedule";
+import {
+  getSlotError,
+  isDataPassada,
+  isDataValida,
+  isPastToday,
+  MSG_DATA_PASSADA,
+} from "@/lib/validations";
 
 const gerarSlotsInicio = () => {
   const slots: string[] = [];
@@ -56,7 +63,9 @@ export function NovoAgendamentoModal({
   dataInicial,
   externalError,
 }: NovoAgendamentoModalProps) {
-  const today = new Date().toISOString().split("T")[0];
+  // `toISODate` usa os getters locais; `toISOString()` (UTC) fazia o `min`
+  // apontar para o dia seguinte entre 21h e 24h em fusos negativos como UTC-3.
+  const today = toISODate(new Date());
   const [sala, setSala] = useState(salaInicial ?? SALAS[0]);
   const [data, setData] = useState(dataInicial ?? today);
   const [inicio, setInicio] = useState(SLOTS_INICIO[0]);
@@ -67,6 +76,7 @@ export function NovoAgendamentoModal({
   const [erro, setErro] = useState<string | null>(null);
 
   const validar = () => {
+    if (isDataPassada(data)) return MSG_DATA_PASSADA;
     if (isPastToday(data, inicio)) return "Horário já passou no dia atual.";
     if (!nome.trim()) return "Nome é obrigatório";
     if (!departamento) return "Departamento é obrigatório";
@@ -104,7 +114,7 @@ export function NovoAgendamentoModal({
     <Modal open={open} onClose={onClose}>
       <ModalContent>
         <ModalHeader>Novo Agendamento</ModalHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <ModalBody className="flex flex-col gap-4">
             <div>
               <label htmlFor="sala-select" className="text-caption font-medium text-neutral-700">

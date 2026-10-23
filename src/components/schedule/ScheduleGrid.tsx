@@ -261,6 +261,9 @@ export function ScheduleGrid({
 
   const openCreateModal = (slot: TimeSlot, date: string) => {
     if (slot.status !== "available") return;
+    // RN16: a grade continua navegável em semanas passadas para consulta, mas
+    // não abre a criação em dias anteriores a hoje.
+    if (date < todayISO) return;
     setCreateTarget({ date, startTime: slot.startTime });
   };
 

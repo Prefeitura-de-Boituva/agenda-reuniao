@@ -5,6 +5,7 @@ import {
   ehHoje,
   getErroCamposObrigatorios,
   getSlotError,
+  isDataPassada,
   isDataValida,
   isDuracaoMinima,
   isFimMaiorQueInicio,
@@ -118,6 +119,33 @@ describe("isPastToday (regra RN12 – só o dia corrente)", () => {
 
   it("bloqueia horário passado hoje à noite (bug de fuso corrigido)", () => {
     expect(isPastToday(dataISO(2026, 9, 20), "21:00", agora(2026, 9, 20, 22, 0))).toBe(true);
+  });
+});
+
+describe("isDataPassada (regra RN16 – datas anteriores a hoje)", () => {
+  it("considera passada a data de ontem", () => {
+    expect(isDataPassada(dataISO(2026, 9, 19), agora(2026, 9, 20, 0, 0))).toBe(true);
+    expect(isDataPassada(dataISO(2026, 9, 19), agora(2026, 9, 20, 23, 59))).toBe(true);
+  });
+
+  it("não considera passada a data de hoje, em qualquer horário", () => {
+    expect(isDataPassada(dataISO(2026, 9, 20), agora(2026, 9, 20, 0, 0))).toBe(false);
+    // Regressão do bug de UTC-3: às 23h local, a data UTC já é "amanhã".
+    expect(isDataPassada(dataISO(2026, 9, 20), agora(2026, 9, 20, 23, 30))).toBe(false);
+  });
+
+  it("não considera passada uma data futura", () => {
+    expect(isDataPassada(dataISO(2026, 9, 21), agora(2026, 9, 20, 12, 0))).toBe(false);
+  });
+
+  it("cobre a virada de mês e de ano", () => {
+    expect(isDataPassada(dataISO(2026, 8, 31), agora(2026, 9, 1, 0, 1))).toBe(true);
+    expect(isDataPassada(dataISO(2025, 12, 31), agora(2026, 1, 1, 0, 1))).toBe(true);
+  });
+
+  it("não quebra com data em formato inválido", () => {
+    expect(isDataPassada("20/09/2026", agora(2026, 9, 20, 12, 0))).toBe(false);
+    expect(isDataPassada("", agora(2026, 9, 20, 12, 0))).toBe(false);
   });
 });
 

@@ -96,3 +96,29 @@
 
 - `src/lib/__tests__/validations.test.ts` referencia a constante `MIN_DURATION_MINUTES` exportada, para não depender do número.
 - `src/lib/__tests__/schedule.test.ts` trava a grade: 18 slots, 30 minutos cada, contiguidade, último slot fechando em 17:00 e o guard de que **todo slot isolado passa em `isSlotValido`** (regressão do `:59`).
+
+---
+
+# RN16 – Bloqueio de agendamento em datas passadas
+
+**Regra de negócio**
+
+- Não é permitido criar agendamento com data de calendário anterior ao dia corrente. A regra vale para qualquer horário: uma data de ontem é rejeitada mesmo que o horário de início ainda não tenha "decorrido" no relógio.
+- É **independente da RN12**: a RN12 trata do horário já passado **no dia corrente**; a RN16 trata da data anterior a hoje. As duas regras convivem e são aplicadas em sequência.
+
+**Implementação**
+
+- **Back-end** (`src/lib/validations.ts`): `isDataPassada(dateISO, now?)` compara o índice do dia da data com o índice do dia local atual, sem usar `toISOString()` (UTC). A rota `POST /api/agendamentos` aplica a RN16 depois da validação de formato e antes da RN12 (`src/app/api/agendamentos/route.ts`).
+- **Front-end** (`src/components/schedule/NovoAgendamentoModal.tsx`): o `validar()` chama `isDataPassada` antes da RN12 e o date picker mantém `min` calculado com `toISODate(new Date())` (horário local). O formulário usa `noValidate` para que a mensagem customizada apareça em vez da mensagem nativa do navegador.
+- **Grade** (`src/components/schedule/ScheduleGrid.tsx`): `openCreateModal` não abre a criação em dias anteriores a hoje. A navegação para semanas passadas continua disponível para consulta.
+- **Fuso**: o container define `TZ=America/Sao_Paulo` (`Dockerfile` e `docker-compose.yml`), para que o "hoje" do servidor coincida com o dos usuários de Boituva.
+
+**Resposta da API**
+
+- `400 Bad Request` com o corpo `{ "error": "Erro 400: Não é possível agendar para uma data passada." }`.
+
+**Testes**
+
+- `src/lib/__tests__/validations.test.ts`: casos unitários de `isDataPassada` (ontem, hoje, amanhã, virada de mês/ano e formato inválido).
+- `src/lib/__tests__/criar-agendamento.test.ts`: relógio congelado para manter as fixtures determinísticas e cenários de data passada, hoje e amanhã.
+- `cypress/e2e/data-passada.cy.ts`: API (400), `min` do date picker e bloqueio de abertura do modal na grade.

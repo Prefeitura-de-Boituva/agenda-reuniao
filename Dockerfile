@@ -14,6 +14,9 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
+# Mantém o mesmo fuso no build e no runtime (componentes client também são
+# pré-renderizados no build).
+ENV TZ=America/Sao_Paulo
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -28,6 +31,8 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+# RN16: "hoje" deve seguir o fuso de Boituva, não o UTC padrão do container.
+ENV TZ=America/Sao_Paulo
 
 # usuário não-root
 RUN addgroup --system --gid 1001 nodejs \
