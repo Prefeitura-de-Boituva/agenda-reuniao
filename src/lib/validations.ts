@@ -102,6 +102,27 @@ export function isPastToday(
   return ehHoje(dateISO, now) && jaDecorrido(dateISO, time, now);
 }
 
+/** Mensagem padronizada da RN16, usada pela API e pelo formulário. */
+export const MSG_DATA_PASSADA =
+  "Erro 400: Não é possível agendar para uma data passada.";
+
+/**
+ * Regra RN16: true quando `dateISO` (YYYY-MM-DD) é um dia de calendário
+ * **estritamente anterior** ao dia corrente no horário local.
+ *
+ * É independente da RN12: uma data anterior é bloqueada mesmo que o horário
+ * ainda não tenha "decorrido" no relógio. Data em formato inválido devolve
+ * `false`; o formato é validado antes na rota (`getErroCamposObrigatorios`).
+ */
+export function isDataPassada(
+  dateISO: string,
+  now: Date = new Date()
+): boolean {
+  const dia = indiceDiaDataISO(dateISO);
+  if (dia === null) return false;
+  return dia < indiceDiaLocal(now);
+}
+
 export function jaPassou(data: string, horaFim: string): boolean {
   const [year, month, day] = data.split("-").map(Number);
   const [hour, minute] = horaFim.split(":").map(Number);

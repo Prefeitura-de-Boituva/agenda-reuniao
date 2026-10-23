@@ -80,6 +80,13 @@ const post = async (body: unknown) => {
 beforeEach(() => {
   _store.length = 0;
   vi.clearAllMocks();
+  // Congela o relógio em uma data compatível com as fixtures (`2026-09-21`),
+  // para que a RN16 não transforme os cenários de sucesso/conflito em "data
+  // passada" com o passar do tempo. Usamos 07:00 para que os testes de janela
+  // (ex.: início às 07:30) continuem exercitando `getSlotError`, e não a RN12.
+  // Os testes da RN12 sobrescrevem o horário.
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-09-21T07:00:00.000Z"));
 });
 
 afterEach(() => {
@@ -318,6 +325,61 @@ describe("POST /api/agendamentos – criação", () => {
 
       expect(status).toBe(400);
       expect(json.error).toBe("Horário já passou no dia atual.");
+    });
+  });
+
+  describe("400 – RN16: data anterior ao dia atual", () => {
+    it("rejeita ontem com a mensagem padronizada", async () => {
+      const { status, json } = await post({
+        ...bodyValido,
+        data: "2026-09-20",
+        horaInicio: "10:00",
+        horaFim: "11:00",
+      });
+
+      expect(status).toBe(400);
+      expect(json.error).toBe(
+        "Erro 400: Não é possível agendar para uma data passada."
+      );
+      expect(_store).toHaveLength(0);
+    });
+
+    it("rejeita data anterior mesmo com horário ainda futuro no relógio", async () => {
+      // RN16 é independente da RN12: a data é de ontem, mas o horário das 10h
+      // ainda não "decorreu" no relógio congelado às 07h.
+      const { status, json } = await post({
+        ...bodyValido,
+        data: "2026-09-20",
+        horaInicio: "10:00",
+        horaFim: "11:00",
+      });
+
+      expect(status).toBe(400);
+      expect(json.error).toBe(
+        "Erro 400: Não é possível agendar para uma data passada."
+      );
+    });
+
+    it("continua aceitando hoje com horário futuro", async () => {
+      const { status } = await post({
+        ...bodyValido,
+        data: "2026-09-21",
+        horaInicio: "10:00",
+        horaFim: "11:00",
+      });
+
+      expect(status).toBe(201);
+    });
+
+    it("continua aceitando amanhã", async () => {
+      const { status } = await post({
+        ...bodyValido,
+        data: "2026-09-22",
+        horaInicio: "08:00",
+        horaFim: "09:00",
+      });
+
+      expect(status).toBe(201);
     });
   });
 

@@ -1,5 +1,11 @@
 import { temConflito } from "@/lib/conflict";
-import { getErroCamposObrigatorios, getSlotError, isSlotValido } from "@/lib/validations";
+import {
+  getErroCamposObrigatorios,
+  getSlotError,
+  isDataPassada,
+  isSlotValido,
+  MSG_DATA_PASSADA,
+} from "@/lib/validations";
 import { db } from "@/prisma/db";
 
 export async function POST(request: Request) {
@@ -34,6 +40,13 @@ export async function POST(request: Request) {
   const erroCampos = getErroCamposObrigatorios(body);
   if (erroCampos) {
     return Response.json({ error: erroCampos }, { status: 400 });
+  }
+
+  // RN16: bloqueia qualquer data de calendário anterior ao dia corrente.
+  // Roda depois da validação de formato, então `data` já é YYYY-MM-DD válida.
+  // A RN12 (abaixo) continua tratando apenas o horário passado no mesmo dia.
+  if (isDataPassada(data)) {
+    return Response.json({ error: MSG_DATA_PASSADA }, { status: 400 });
   }
 
   // Bloquear agendamentos em horário já passado no mesmo dia.

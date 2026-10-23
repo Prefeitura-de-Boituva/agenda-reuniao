@@ -261,6 +261,9 @@ export function ScheduleGrid({
 
   const openCreateModal = (slot: TimeSlot, date: string) => {
     if (slot.status !== "available") return;
+    // RN16: a grade continua navegável em semanas passadas para consulta, mas
+    // não abre a criação em dias anteriores a hoje.
+    if (date < todayISO) return;
     setCreateTarget({ date, startTime: slot.startTime });
   };
 
@@ -506,8 +509,10 @@ export function ScheduleGrid({
               });
               if (!res.ok) {
                 const err = await res.json();
-                if (res.status === 409 && err?.error) {
+                if (err?.error) {
                   setCreateError(err.error);
+                } else if (res.status === 409) {
+                  setCreateError('Horário conflita com agendamento existente');
                 } else {
                   setCreateError('Horário indisponível para esta sala na data selecionada');
                 }
