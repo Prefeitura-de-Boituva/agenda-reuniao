@@ -130,16 +130,57 @@ Sobe a aplicação em `http://localhost:3001` e um Postgres local.
 
 ### Produção (Neon)
 
-```bash
-# aplique as migrations antes do deploy, a partir do repositório
-npm run db:migrate
+**Pré-requisito no servidor:** Docker Engine + plugin Compose v2
+(`docker compose version`). Em Ubuntu:
 
-# suba a aplicação usando a string pooled do Neon
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker "$USER"   # relogue para valer
+```
+
+Passo a passo:
+
+```bash
+# 1. no servidor: crie o .env a partir do exemplo e preencha a DATABASE_URL
+cp .env.production.example .env
+chmod 600 .env
+
+# 2. a partir do repositório (na sua máquina): aplique as migrations
+npx prisma db migrate --db "<DIRECT_URL de produção>"
+npx prisma db verify  --db "<DIRECT_URL de produção>" --strict
+
+# 3. no servidor: build e subida
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-A imagem `standalone` não inclui a CLI do Prisma, por isso as migrations são
-aplicadas fora do container. Informe `DATABASE_URL` no ambiente (ou no `.env`).
+A aplicação escuta somente em `127.0.0.1:3001` (não é exposta à internet) e o
+container tem healthcheck em `GET /api/health` a cada 30s. Para checar:
+
+```bash
+curl -fsS http://127.0.0.1:3001/api/health          # processo/HTTP
+curl -fsS "http://127.0.0.1:3001/api/health?db=1"   # inclui o Neon
+docker compose -f docker-compose.prod.yml ps
+docker inspect --format '{{.State.Health.Status}}' \
+  "$(docker compose -f docker-compose.prod.yml ps -q app)"
+docker compose -f docker-compose.prod.yml logs -f --tail=100
+```
+
+> O healthcheck padrão não consulta o Neon de propósito: uma consulta a cada
+> 30s impediria a suspensão automática do banco. `?db=1` é para uso manual.
+
+`DATABASE_URL` deve ser a string **pooled** do Neon. A `DIRECT_URL` (sem
+`-pooler`) é usada apenas pela CLI, fora do container. A imagem `standalone` não
+inclui a CLI do Prisma, por isso as migrations são aplicadas antes do deploy.
+
+**Rollback:** a imagem é tagueada com `${TAG:-latest}`. Para voltar a um commit
+anterior:
+
+```bash
+git checkout <commit-anterior>
+TAG=<commit-anterior> docker compose -f docker-compose.prod.yml up -d --build
+```
+
+A publicação em 80/443 e o TLS ficam com o proxy reverso (Caddy) da issue #27.
 
 ## Scripts disponíveis
 
