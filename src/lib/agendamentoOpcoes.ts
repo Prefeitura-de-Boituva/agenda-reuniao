@@ -23,10 +23,15 @@ export const DEPARTAMENTOS = [
 export type Sala = (typeof SALAS)[number];
 export type Departamento = (typeof DEPARTAMENTOS)[number];
 
-export function isSalaValida(valor: string): boolean {
+/**
+ * Os guards abaixo são *type predicates*: além de validarem em runtime, eles
+ * estreitam `string` para a união literal do enum. É o que permite passar os
+ * valores do corpo da requisição para o cliente tipado do Prisma 8.
+ */
+export function isSalaValida(valor: string): valor is Sala {
   return (SALAS as readonly string[]).includes(valor);
 }
 
-export function isDepartamentoValido(valor: string): boolean {
+export function isDepartamentoValido(valor: string): valor is Departamento {
   return (DEPARTAMENTOS as readonly string[]).includes(valor);
 }

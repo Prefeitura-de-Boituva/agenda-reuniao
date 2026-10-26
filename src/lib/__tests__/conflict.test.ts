@@ -6,11 +6,11 @@ vi.mock("../../prisma/db", () => ({
     orm: {
       public: {
         Agendamento: {
-          where: vi.fn()
-        }
-      }
-    }
-  }
+          where: vi.fn(),
+        },
+      },
+    },
+  },
 }));
 
 import { db } from "../../prisma/db";
@@ -23,16 +23,22 @@ type Agendamento = {
   horaFim: string;
 };
 
-// Helper to set up the mocked .where -> .orderBy chain
+// `where` é substituído pelo `vi.mock` acima, mas o TypeScript continua vendo
+// a assinatura real do cliente. Este cast dá acesso à API de mock com tipos.
+const agendamentoMock = db.orm.public.Agendamento as unknown as {
+  where: ReturnType<typeof vi.fn>;
+};
+
+// Helper to set up the mocked .where -> .orderBy -> .all chain
 const mockWhere = (returnValue: Agendamento[]) => {
   // The mock respects the filter { sala, data }
-  // @ts-ignore – mock implementation for chainable methods
-  db.orm.public.Agendamento.where.mockImplementation((filter: { sala: string; data: string }) => {
+  agendamentoMock.where.mockImplementation((filter: { sala: string; data: string }) => {
     const filtered = returnValue.filter(
       (a) => a.sala === filter.sala && a.data === filter.data
     );
     return {
-      orderBy: vi.fn().mockResolvedValue(filtered)
+      // Prisma 8: `.orderBy(...)` devolve a coleção; `.all()` a resolve.
+      orderBy: vi.fn().mockReturnValue({ all: vi.fn().mockResolvedValue(filtered) }),
     };
   });
 };
@@ -40,8 +46,7 @@ const mockWhere = (returnValue: Agendamento[]) => {
 describe("temConflito", () => {
   beforeEach(() => {
     // reset mock for each test
-    // @ts-ignore
-    db.orm.public.Agendamento.where.mockReset();
+    agendamentoMock.where.mockReset();
   });
 
   it("detecta conflito total", async () => {

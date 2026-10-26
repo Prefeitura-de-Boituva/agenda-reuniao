@@ -39,7 +39,10 @@ vi.mock("@/prisma/db", () => ({
               )
             );
             return {
-              orderBy: vi.fn().mockResolvedValue(matched),
+              // Prisma 8: `.orderBy(...)` devolve a coleção; `.all()` a resolve.
+              orderBy: vi
+                .fn()
+                .mockReturnValue({ all: vi.fn().mockResolvedValue(matched) }),
               first: vi.fn().mockResolvedValue(matched[0] ?? null),
             };
           }),
@@ -487,9 +490,8 @@ describe("POST /api/agendamentos – criação", () => {
 
   describe("500 – falha de persistência", () => {
     it("devolve 500 quando o create falha", async () => {
-      db.orm.public.Agendamento.create.mockRejectedValueOnce(
-        new Error("conexão recusada")
-      );
+      (db.orm.public.Agendamento.create as unknown as ReturnType<typeof vi.fn>)
+        .mockRejectedValueOnce(new Error("conexão recusada"));
 
       const { status, json } = await post(bodyValido);
 

@@ -1,3 +1,7 @@
+import {
+  type Departamento,
+  type Sala,
+} from "@/lib/agendamentoOpcoes";
 import { temConflito } from "@/lib/conflict";
 import {
   getErroCamposObrigatorios,
@@ -7,6 +11,15 @@ import {
   MSG_DATA_PASSADA,
 } from "@/lib/validations";
 import { db } from "@/prisma/db";
+import type { Models } from "@/prisma/contract.d";
+
+/**
+ * `horaInicio`/`horaFim` são `varchar(5)` no contrato, o que o Prisma 8 expõe
+ * como o tipo marcado `Varchar<5>`. A validação de formato (HH:MM e grade de
+ * 30 min) já aconteceu antes; aqui só alinhamos o tipo com o contrato.
+ */
+const hora = (valor: string): Models.public_Agendamento["horaInicio"] =>
+  valor as Models.public_Agendamento["horaInicio"];
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -42,6 +55,12 @@ export async function POST(request: Request) {
     return Response.json({ error: erroCampos }, { status: 400 });
   }
 
+  // `getErroCamposObrigatorios` já garantiu que os valores pertencem aos enums
+  // do contrato (caso contrário teria retornado 400 acima). Os casts abaixo
+  // apenas alinham o tipo `string` com as uniões literais que o Prisma 8 exige.
+  const salaValida = sala as Sala;
+  const departamentoValido = departamento as Departamento;
+
   // RN16: bloqueia qualquer data de calendário anterior ao dia corrente.
   // Roda depois da validação de formato, então `data` já é YYYY-MM-DD válida.
   // A RN12 (abaixo) continua tratando apenas o horário passado no mesmo dia.
@@ -75,7 +94,7 @@ export async function POST(request: Request) {
   }
 
   // Verifica conflito de horário antes de criar o agendamento
-  const conflito = await temConflito(sala, data, horaInicio, horaFim);
+  const conflito = await temConflito(salaValida, data, horaInicio, horaFim);
 
   if (conflito) {
     return Response.json(
@@ -89,11 +108,11 @@ export async function POST(request: Request) {
   const novoAgendamento = {
     id: crypto.randomUUID(),
     nome,
-    departamento,
-    sala,
+    departamento: departamentoValido,
+    sala: salaValida,
     data,
-    horaInicio,
-    horaFim,
+    horaInicio: hora(horaInicio),
+    horaFim: hora(horaFim),
     criadoEm: new Date().toISOString(),
   };
 
@@ -125,10 +144,13 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   try {
+    // Prisma 8: `.orderBy` recebe um seletor e a coleção é resolvida com `.all()`.
     const agendamentos = await db.orm.public.Agendamento.where({
-      sala,
+      sala: sala as Sala,
       data,
-    }).orderBy({ horaInicio: 'asc' });
+    })
+      .orderBy((a) => a.horaInicio.asc())
+      .all();
     return Response.json(agendamentos, { status: 200 });
   } catch {
     return Response.json(
