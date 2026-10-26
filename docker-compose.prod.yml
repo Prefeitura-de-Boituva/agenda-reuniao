@@ -6,19 +6,50 @@
 #
 # A `DATABASE_URL` deve ser a connection string **pooled** do Neon
 # (host terminando em `-pooler`). Ela pode vir do ambiente do host ou do `.env`
-# (que o docker compose carrega automaticamente).
+# (que o docker compose carrega automaticamente). Veja `.env.production.example`.
+#
+# A aplicação escuta apenas em `127.0.0.1:3001` e não é exposta diretamente à
+# internet. O proxy TLS (Caddy) da issue #27 publica 80/443 e encaminha para
+# `app:3000` pela rede interna do compose.
 #
 # As migrations NÃO rodam no container (a imagem standalone não inclui a CLI do
 # Prisma). Aplique-as antes do deploy, a partir do repositório:
-#   npm run db:migrate
+#   npx prisma db migrate --db "<DIRECT_URL de produção>"
+#   npx prisma db verify  --db "<DIRECT_URL de produção>" --strict
 
 services:
   app:
     build: .
-    container_name: agenda-reuniao-app
+    # Tag por commit permite rollback: TAG=<sha> docker compose ... up -d --build
+    image: agenda-reuniao:${TAG:-latest}
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     environment:
-      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL (connection string pooled do Neon)}
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
       TZ: America/Sao_Paulo
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL (connection string pooled do Neon)}
+    init: true
+    stop_grace_period: 30s
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      # Node 24 tem `fetch` global: evita depender do wget do BusyBox.
+      # Não usa `?db=1` de propósito (não deve acordar o Neon a cada 30s).
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
