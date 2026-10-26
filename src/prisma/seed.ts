@@ -42,6 +42,15 @@ if (!url) {
   process.exit(1);
 }
 
+// Segurança: o seed insere agendamentos de demonstração e não deve rodar no
+// banco de produção. Em produção, exige confirmação explícita (SEED_FORCE=1).
+if (process.env['NODE_ENV'] === 'production' && process.env['SEED_FORCE'] !== '1') {
+  console.error(
+    '✖ Seed bloqueado em produção. Use SEED_FORCE=1 apenas se tiver certeza de que é isso que você quer.'
+  );
+  process.exit(1);
+}
+
 const db = postgres<Contract>({ contractJson, url });
 
 /** Retorna a data local (sem fuso) de hoje + N dias, no formato YYYY-MM-DD. */
