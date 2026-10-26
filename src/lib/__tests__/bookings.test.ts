@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { fetchBookings } from "../bookings";
-import { getMockBookings } from "../mock-data";
 
 const agendamentoFazenda = {
   id: "abc-123",
@@ -13,18 +12,27 @@ const agendamentoFazenda = {
   criadoEm: "2026-09-19T10:00:00.000Z",
 };
 
-function mockDaSalaAzul(date: string) {
-  return getMockBookings(date).filter((b) => b.roomId === "sala-azul");
-}
+const agendamentoJuridico = {
+  id: "def-456",
+  nome: "Maria",
+  departamento: "Secretaria Municipal de Assuntos Jurídicos",
+  sala: "Sala Azul",
+  data: "2026-09-20",
+  horaInicio: "09:00",
+  horaFim: "10:00",
+  criadoEm: "2026-09-19T10:00:00.000Z",
+};
 
 describe("fetchBookings", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("mescla os agendamentos de demonstração da grade com os reais da API", async () => {
+  it("devolve somente os agendamentos reais da API, ordenados por horário", async () => {
     const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify([agendamentoFazenda]), { status: 200 })
+      new Response(JSON.stringify([agendamentoFazenda, agendamentoJuridico]), {
+        status: 200,
+      })
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -34,22 +42,30 @@ describe("fetchBookings", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/agendamentos?sala=Sala%20Azul&data=2026-09-20"
     );
-    const esperado = [
-      ...mockDaSalaAzul("2026-09-20"),
+    expect(resultado["2026-09-20"]).toEqual([
+      {
+        id: "def-456",
+        roomId: "sala-azul",
+        date: "2026-09-20",
+        name: "Maria",
+        department: "Secretaria Municipal de Assuntos Jurídicos",
+        startTime: "09:00",
+        endTime: "10:00",
+      },
       {
         id: "abc-123",
         roomId: "sala-azul",
         date: "2026-09-20",
         name: "João",
-        department: "Secretaria Municipal Fazenda, Desenvolvimento Econômico e Finanças",
+        department:
+          "Secretaria Municipal Fazenda, Desenvolvimento Econômico e Finanças",
         startTime: "10:30",
         endTime: "11:30",
       },
-    ].sort((a, b) => a.startTime.localeCompare(b.startTime));
-    expect(resultado["2026-09-20"]).toEqual(esperado);
+    ]);
   });
 
-  it("mantém os agendamentos de demonstração na grade quando a API responde erro", async () => {
+  it("devolve lista vazia para a data quando a API responde erro", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response("{\"error\":\"...\"}", { status: 500 }))
@@ -57,7 +73,20 @@ describe("fetchBookings", () => {
 
     const resultado = await fetchBookings("sala-azul", ["2026-09-20"]);
 
-    expect(resultado["2026-09-20"]).toEqual(mockDaSalaAzul("2026-09-20"));
+    expect(resultado["2026-09-20"]).toEqual([]);
+  });
+
+  it("devolve lista vazia quando a requisição falha (erro de rede)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("network down");
+      })
+    );
+
+    const resultado = await fetchBookings("sala-azul", ["2026-09-20"]);
+
+    expect(resultado["2026-09-20"]).toEqual([]);
   });
 
   it("retorna objeto vazio quando a sala não existe", async () => {

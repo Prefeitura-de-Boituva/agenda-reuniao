@@ -6,9 +6,10 @@
  *
  *   npm run seed
  *
- * Observação: `src/prisma/db.ts` (usado pela aplicação) é um mock em memória.
- * Este script cria sua própria conexão real com o runtime do Prisma 8 para
- * falar com o Postgres/Neon de verdade.
+ * Observação: este script cria sua própria conexão com o runtime do Prisma 8
+ * para falar com o Postgres/Neon de verdade. A aplicação usa a mesma conexão
+ * através de `src/prisma/db.ts`, mas aqui o pool é fechado ao final. O seed é
+ * idempotente e pode ser executado várias vezes.
  */
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
@@ -37,6 +38,15 @@ const url = process.env['DATABASE_URL'];
 if (!url) {
   console.error(
     '✖ DATABASE_URL não está definida. Crie um .env com a connection string do banco antes de rodar o seed.'
+  );
+  process.exit(1);
+}
+
+// Segurança: o seed insere agendamentos de demonstração e não deve rodar no
+// banco de produção. Em produção, exige confirmação explícita (SEED_FORCE=1).
+if (process.env['NODE_ENV'] === 'production' && process.env['SEED_FORCE'] !== '1') {
+  console.error(
+    '✖ Seed bloqueado em produção. Use SEED_FORCE=1 apenas se tiver certeza de que é isso que você quer.'
   );
   process.exit(1);
 }

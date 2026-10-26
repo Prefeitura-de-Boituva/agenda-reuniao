@@ -1,48 +1,32 @@
-export const db: any = {
-  orm: {
-    public: {
-      // Simple in‑memory storage to emulate Prisma behaviour during development
-      _store: [] as any[],
-      Agendamento: {
-        /**
-         * Mimics `prisma.agendamento.where({ ... })` followed by
-         * `.orderBy(...)`, `.first()` or `.delete()`.
-         * The filter matches any field(s) by strict equality (ex.: { id }, { sala, data }).
-         */
-        where: (filter: Record<string, unknown>) => {
-          const matched = db.orm.public._store.filter((a: any) =>
-            Object.entries(filter).every(([key, value]) => a[key] === value)
-          );
-          return {
-            orderBy: (order: { horaInicio: 'asc' | 'desc' }) => {
-              const sorted = [...matched].sort((a, b) => {
-                if (order.horaInicio === 'asc') return a.horaInicio.localeCompare(b.horaInicio);
-                return b.horaInicio.localeCompare(a.horaInicio);
-              });
-              // Return a Promise to match Prisma's async API
-              return Promise.resolve(sorted);
-            },
-            first: () => Promise.resolve(matched[0] ?? null),
-            delete: async () => {
-              const deleted = matched[0] ?? null;
-              if (deleted) {
-                const index = db.orm.public._store.findIndex(
-                  (a: { id: string }) => a.id === deleted.id
-                );
-                if (index !== -1) db.orm.public._store.splice(index, 1);
-              }
-              return deleted;
-            },
-          };
-        },
-        /**
-         * Simple create that pushes into the in‑memory array and returns the record
-         */
-        create: async (data: any) => {
-          db.orm.public._store.push(data);
-          return data;
-        },
-      },
-    },
-  },
-};
+import postgres from '@prisma/orm-postgres/runtime';
+import type { Contract } from './contract.d';
+import contractJson from './contract.json' with { type: 'json' };
+
+/**
+ * Cria o cliente do Prisma 8 para o Postgres/Neon.
+ *
+ * A conexão é lazy: o pool `pg` só é aberto na primeira consulta que precisar
+ * de runtime. Por isso este módulo pode ser importado por rotas e componentes
+ * sem que o `.env` já esteja carregado (no Next.js ele é carregado antes).
+ */
+function criarDb() {
+  return postgres<Contract>({
+    contractJson,
+    url: process.env['DATABASE_URL']!,
+  });
+}
+
+type Db = ReturnType<typeof criarDb>;
+
+/**
+ * Em desenvolvimento o hot-reload do `next dev` reavalia os módulos e criaria
+ * um pool novo a cada mudança. Guardar a instância no `globalThis` garante um
+ * único pool por processo; em produção o módulo também é avaliado uma vez só.
+ */
+const globalForDb = globalThis as unknown as { prisma?: Db };
+
+export const db: Db = globalForDb.prisma ?? criarDb();
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForDb.prisma = db;
+}
