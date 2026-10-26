@@ -1,0 +1,24 @@
+# Ambiente de produção: aplicação + Neon (sem Postgres local).
+#
+# Uso:
+#   docker compose -f docker-compose.prod.yml build
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# A `DATABASE_URL` deve ser a connection string **pooled** do Neon
+# (host terminando em `-pooler`). Ela pode vir do ambiente do host ou do `.env`
+# (que o docker compose carrega automaticamente).
+#
+# As migrations NÃO rodam no container (a imagem standalone não inclui a CLI do
+# Prisma). Aplique-as antes do deploy, a partir do repositório:
+#   npm run db:migrate
+
+services:
+  app:
+    build: .
+    container_name: agenda-reuniao-app
+    ports:
+      - "3001:3000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL (connection string pooled do Neon)}
+      TZ: America/Sao_Paulo
+    restart: unless-stopped
