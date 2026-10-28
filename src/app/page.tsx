@@ -3,7 +3,7 @@ import { CalendarDays } from "lucide-react";
 import { useState } from "react";
 import SalaTabs from "@/components/SalaTabs";
 import DateSelector from "@/components/DateSelector";
-import { Button, Input, buttonClasses } from "@/components/ui";
+import { buttonClasses } from "@/components/ui";
 import { toISODate } from "@/lib/schedule";
 import Link from "next/link";
 import Agenda from "@/components/Agenda";
@@ -59,41 +59,6 @@ export default function Home() {
       </div>
 
       <Agenda selectedSala={selectedSala} />
-
-      <section className="flex flex-col gap-4 rounded-xl bg-white p-6 shadow-card border border-neutral-200 max-w-md">
-        <h2 className="text-h3 font-semibold text-neutral-900">
-          Componentes do Design System
-        </h2>
-
-        <div className="flex flex-col gap-1.5">
-          <h3 className="text-caption font-medium text-neutral-700">Botões</h3>
-          <div className="flex flex-wrap gap-2">
-            <Button>Primary</Button>
-            <Button variant="secondary">Secondary</Button>
-            <Button variant="outline">Outline</Button>
-            <Button variant="ghost">Ghost</Button>
-            <Button variant="danger">Danger</Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm">Pequeno</Button>
-            <Button size="md">Médio</Button>
-            <Button size="lg">Grande</Button>
-          </div>
-          <Button loading>Carregando...</Button>
-          <Button disabled>Desabilitado</Button>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <h3 className="text-caption font-medium text-neutral-700">Inputs</h3>
-          <Input label="Nome da Sala" placeholder="Ex: Sala Azul" />
-          <Input
-            label="Buscar"
-            placeholder="Pesquisar..."
-            helperText="Digite pelo menos 3 caracteres"
-          />
-          <Input label="Campo com erro" placeholder="..." error="Este campo é obrigatório" />
-        </div>
-      </section>
     </div>
   );
 }

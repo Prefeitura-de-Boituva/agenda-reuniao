@@ -13,6 +13,7 @@ import {
   SLOT_MINUTES,
 } from "@/lib/schedule";
 import { ROOMS } from "@/lib/rooms";
+import { ROOM_COLORS } from "@/lib/room-colors";
 import { NovoAgendamentoModal } from "./NovoAgendamentoModal";
 import { CancelarAgendamentoModal } from "./CancelarAgendamentoModal";
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Toast } from "@/components/ui";
@@ -321,20 +322,24 @@ export function ScheduleGrid({
             </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {ROOMS.map((room) => (
-            <button
-              key={room.id}
-              onClick={() => onSelectRoom(room.id)}
-              className={cn(
-                "rounded-lg px-4 py-2 text-caption font-medium transition-colors duration-150",
-                room.id === selectedRoomId
-                  ? "bg-primary-500 text-white shadow-card"
-                  : "border border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50"
-              )}
-            >
-              {room.name}
-            </button>
-          ))}
+          {ROOMS.map((room) => {
+            const isSelected = room.id === selectedRoomId;
+            const color = ROOM_COLORS[room.id] ?? ROOM_COLORS["sala-azul"];
+            return (
+              <button
+                key={room.id}
+                onClick={() => onSelectRoom(room.id)}
+                className={cn(
+                  "rounded-lg px-4 py-2 text-caption font-medium transition-colors duration-150",
+                  isSelected
+                    ? cn(color.bg, color.border, color.text, "shadow-card")
+                    : "border border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50"
+                )}
+              >
+                {room.name}
+              </button>
+            );
+          })}
         </div>
       </div>
 

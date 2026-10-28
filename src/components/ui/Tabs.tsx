@@ -16,6 +16,8 @@ export interface TabsProps {
   onChange: (value: string) => void;
   /** Optional class name for the container */
   className?: string;
+  /** Optional class name applied to the active tab (defaults to primary styling) */
+  activeTabClassName?: string;
 }
 
 /**
@@ -26,7 +28,7 @@ export interface TabsProps {
  * state; the parent must control the selected value via `activeTab` and
  * `onChange`. This keeps the component reusable across the codebase.
  */
-export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className }) => {
+export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className, activeTabClassName }) => {
   return (
     <div
       className={`flex w-full overflow-x-auto hide-scrollbar ${className ?? ""}`}
@@ -37,8 +39,8 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className
           type="button"
           onClick={() => onChange(tab.value)}
           className={`flex-1 whitespace-nowrap px-4 py-2 text-body transition-colors duration-150 focus:outline-none ${{
-            // active style
-            active: "border-b-2 border-primary text-primary",
+            // active style — uses room color if provided, otherwise defaults to primary
+            active: activeTabClassName ?? "border-b-2 border-primary text-primary",
             // inactive style
             inactive: "border-b-2 border-transparent text-neutral-600",
           }[tab.value === activeTab ? "active" : "inactive"]}`}

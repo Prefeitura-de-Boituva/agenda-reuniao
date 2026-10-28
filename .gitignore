@@ -52,3 +52,4 @@ dist/
 /.claude/skills/prisma-8/
 /.cursor/skills/prisma-8/
 /.devin/skills/prisma-8/
+.neon
