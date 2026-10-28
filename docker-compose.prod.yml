@@ -1,4 +1,4 @@
-# Ambiente de produção: aplicação + Neon (sem Postgres local).
+# Ambiente de produ��ǜo: aplica��ǜo + Caddy (TLS) + Neon (sem Postgres local).
 #
 # Uso:
 #   docker compose -f docker-compose.prod.yml build
@@ -8,22 +8,21 @@
 # (host terminando em `-pooler`). Ela pode vir do ambiente do host ou do `.env`
 # (que o docker compose carrega automaticamente). Veja `.env.production.example`.
 #
-# A aplicação escuta apenas em `127.0.0.1:3001` e não é exposta diretamente à
-# internet. O proxy TLS (Caddy) da issue #27 publica 80/443 e encaminha para
-# `app:3000` pela rede interna do compose.
+# O Caddy publica 80/443 com TLS automǭtico (Let's Encrypt) e encaminha para
+# `app:3000` pela rede interna. O app nǜo Ǹ exposto diretamente �� internet.
 #
-# As migrations NÃO rodam no container (a imagem standalone não inclui a CLI do
-# Prisma). Aplique-as antes do deploy, a partir do repositório:
-#   npx prisma db migrate --db "<DIRECT_URL de produção>"
-#   npx prisma db verify  --db "<DIRECT_URL de produção>" --strict
+# As migrations NǟO rodam no container (a imagem standalone nǜo inclui a CLI do
+# Prisma). Aplique-as antes do deploy, a partir do reposit��rio:
+#   npx prisma db migrate --db "<DIRECT_URL de produ��ǜo>"
+#   npx prisma db verify  --db "<DIRECT_URL de produ��ǜo>" --strict
 
 services:
   app:
     build: .
     # Tag por commit permite rollback: TAG=<sha> docker compose ... up -d --build
     image: agenda-reuniao:${TAG:-latest}
-    ports:
-      - "127.0.0.1:3001:3000"
+    expose:
+      - "3000"
     environment:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
@@ -36,9 +35,11 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    networks:
+      - internal
     healthcheck:
       # Node 24 tem `fetch` global: evita depender do wget do BusyBox.
-      # Não usa `?db=1` de propósito (não deve acordar o Neon a cada 30s).
+      # Nǜo usa `?db=1` de prop��sito (nǜo deve acordar o Neon a cada 30s).
       test:
         - CMD
         - node
@@ -53,3 +54,37 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?Defina DOMAIN (dominio fixo)}
+      ACME_EMAIL: ${ACME_EMAIL:?Defina ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,33 @@
+# Caddyfile - Agenda-Reunião
+# Proxy reverso com TLS automático (Let's Encrypt)
+# Domínio fixo parametrizado via variáveis de ambiente.
+
+{$DOMAIN} {
+	# Redireciona requisições para o app na rede interna
+	reverse_proxy app:3000
+
+	# Headers de segurança
+	header {
+		# HSTS - força HTTPS por 1 ano
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		# Previne MIME sniffing
+		X-Content-Type-Options "nosniff"
+		# Previne clickjacking
+		X-Frame-Options "SAMEORIGIN"
+		# Política de referrer
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Remove header do servidor
+		-Server
+	}
+
+	# Log de acesso
+	log {
+		output stdout
+		format console
+	}
+}
+
+# Email para Let's Encrypt (obrigatório para notificações)
+{
+	email {$ACME_EMAIL}
+}

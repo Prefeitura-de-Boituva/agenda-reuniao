@@ -157,8 +157,8 @@ A aplicação escuta somente em `127.0.0.1:3001` (não é exposta à internet) e
 container tem healthcheck em `GET /api/health` a cada 30s. Para checar:
 
 ```bash
-curl -fsS http://127.0.0.1:3001/api/health          # processo/HTTP
-curl -fsS "http://127.0.0.1:3001/api/health?db=1"   # inclui o Neon
+curl -fsS https://$DOMAIN/api/health          # p\u00fablico via Caddy
+curl -fsS "https://$DOMAIN/api/health?db=1"     # inclui o Neon (manual)
 docker compose -f docker-compose.prod.yml ps
 docker inspect --format '{{.State.Health.Status}}' \
   "$(docker compose -f docker-compose.prod.yml ps -q app)"
