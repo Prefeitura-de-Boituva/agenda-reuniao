@@ -14,7 +14,7 @@ function GradeContent() {
   const searchParams = useSearchParams();
   const dateParam = searchParams?.get("date");
   const roomParam = searchParams?.get("room");
-  
+
   const [selectedRoomId, setSelectedRoomId] = useState<string>(ROOMS[0].id);
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [fetched, setFetched] = useState<Record<string, Record<string, Booking[]>>>({});
@@ -55,6 +55,23 @@ function GradeContent() {
       setSelectedRoomId(roomParam);
     }
   }, [hydrated, roomParam]);
+
+  // Light background tint per room — applied to body + page wrapper
+  const pageBgClass =
+    selectedRoomId === "sala-azul"
+      ? "bg-primary-50"
+      : selectedRoomId === "sala-verde"
+        ? "bg-success-50"
+        : selectedRoomId === "sala-amarela"
+          ? "bg-warning-50"
+          : "bg-primary-50";
+
+  // Apply bg color to body (full page coverage incl. header area)
+  useEffect(() => {
+    const bodyClasses = ["bg-primary-50", "bg-success-50", "bg-warning-50", "bg-white"];
+    document.body.classList.remove(...bodyClasses);
+    document.body.classList.add(pageBgClass);
+  }, [selectedRoomId]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -139,19 +156,21 @@ function GradeContent() {
   };
 
   return (
-    <ScheduleGrid
-      bookings={bookings}
-      isLoading={isLoading}
-      selectedRoomId={selectedRoomId}
-      onSelectRoom={handleSelectRoom}
-      weekStart={weekStart}
-      onNavigateWeek={handleNavigateWeek}
-      onGoToCurrentWeek={handleGoToCurrentWeek}
-      onCreateBooking={handleCreateBooking}
-      onUpdateBooking={handleUpdateBooking}
-      onDeleteBooking={handleDeleteBooking}
-      highlightedDate={highlightedDate}
-    />
+    <div className="min-h-screen w-full">
+      <ScheduleGrid
+        bookings={bookings}
+        isLoading={isLoading}
+        selectedRoomId={selectedRoomId}
+        onSelectRoom={handleSelectRoom}
+        weekStart={weekStart}
+        onNavigateWeek={handleNavigateWeek}
+        onGoToCurrentWeek={handleGoToCurrentWeek}
+        onCreateBooking={handleCreateBooking}
+        onUpdateBooking={handleUpdateBooking}
+        onDeleteBooking={handleDeleteBooking}
+        highlightedDate={highlightedDate}
+      />
+    </div>
   );
 }
 

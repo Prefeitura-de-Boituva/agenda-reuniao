@@ -1,6 +1,6 @@
 "use client";
 import { CalendarDays } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SalaTabs from "@/components/SalaTabs";
 import DateSelector from "@/components/DateSelector";
 import { buttonClasses } from "@/components/ui";
@@ -17,6 +17,21 @@ const ROOM_BY_SALA: Record<string, string> = {
 export default function Home() {
   const [selectedSala, setSelectedSala] = useState<string>("Sala Azul");
   const [selectedDate, setSelectedDate] = useState<string>(toISODate(new Date()));
+
+  // Apply light background tint to whole page based on selected room
+  useEffect(() => {
+    const roomId = ROOM_BY_SALA[selectedSala] ?? "sala-azul";
+    const bgClass =
+      roomId === "sala-azul"
+        ? "bg-primary-50"
+        : roomId === "sala-verde"
+          ? "bg-success-50"
+          : roomId === "sala-amarela"
+            ? "bg-warning-50"
+            : "bg-primary-50";
+    document.body.classList.remove("bg-primary-50", "bg-success-50", "bg-warning-50", "bg-background");
+    document.body.classList.add(bgClass);
+  }, [selectedSala]);
   return (
     <div className="flex flex-col gap-8 py-8">
       <section className="flex flex-col gap-2">
