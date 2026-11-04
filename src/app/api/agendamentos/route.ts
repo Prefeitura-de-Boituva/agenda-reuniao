@@ -29,10 +29,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Corpo da requisição inválido." }, { status: 400 });
   }
 
-  const { nome, departamento, sala, data, horaInicio, horaFim } = (body ?? {}) as Record<
-    string,
-    unknown
-  >;
+  const { nome, departamento, sala, data, horaInicio, horaFim } = (body ?? {}) as Record<string, unknown>;
 
   if (
     typeof nome !== "string" ||
@@ -116,16 +113,13 @@ export async function POST(request: Request) {
     criadoEm: new Date().toISOString(),
   };
 
-  // Persist the new agendamento. Falha de infraestrutura no banco não pode
+        // Retorna erro padronizado ao cliente
   // escapar como erro não tratado: devolvemos 500 com a mesma forma de erro
   // usada pelo handler GET.
   try {
     await db.orm.public.Agendamento.create(novoAgendamento);
   } catch {
-    return Response.json(
-      { error: "Erro interno ao criar agendamento." },
-      { status: 500 }
-    );
+        return Response.json({ error: "Erro interno ao criar agendamento." }, { status: 500 });
   }
 
   return Response.json(novoAgendamento, { status: 201 });
@@ -152,10 +146,8 @@ export async function GET(request: Request): Promise<Response> {
       .orderBy((a) => a.horaInicio.asc())
       .all();
     return Response.json(agendamentos, { status: 200 });
-  } catch {
-    return Response.json(
-      { error: 'Erro interno ao buscar agendamentos.' },
-      { status: 500 }
-    );
-  }
+    } catch (e) {
+        console.error('Erro ao buscar agendamentos', e);
+        return Response.json({ error: "Erro interno ao buscar agendamentos." }, { status: 500 });
+    }
 }

@@ -66,7 +66,8 @@ export async function DELETE(
       { message: "Agendamento cancelado com sucesso." },
       { status: 200 }
     );
-  } catch {
+  } catch (e) {
+    console.error('Erro ao cancelar agendamento', e);
     return Response.json(
       { error: "Erro interno ao cancelar agendamento." },
       { status: 500 }

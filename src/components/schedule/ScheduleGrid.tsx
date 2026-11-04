@@ -519,7 +519,7 @@ export function ScheduleGrid({
                 } else if (res.status === 409) {
                   setCreateError('Horário conflita com agendamento existente');
                 } else {
-                  setCreateError('Horário indisponível para esta sala na data selecionada');
+                  setCreateError(err?.error ?? 'Erro ao criar agendamento.');
                 }
                 return false;
               }
@@ -539,10 +539,10 @@ export function ScheduleGrid({
               setCreateError(null);
               setNotice('Sua reunião foi agendada!');
               return true;
-            } catch (e) {
-                setCreateError('Horário indisponível para esta sala na data selecionada');
-              return false;
-            }
+                } catch (e) {
+                  setCreateError('Erro ao criar agendamento.');
+                  return false;
+                }
           }}
 
 
