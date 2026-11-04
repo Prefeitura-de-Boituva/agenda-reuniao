@@ -128,59 +128,89 @@ docker compose up -d --build
 
 Sobe a aplicação em `http://localhost:3001` e um Postgres local.
 
-### Produção (Neon)
+### Local com Neon (sem Caddy)
 
-**Pré-requisito no servidor:** Docker Engine + plugin Compose v2
-(`docker compose version`). Em Ubuntu:
+Para rodar a aplicação em Docker usando o Neon remoto, sem proxy reverso e sem
+TLS local:
 
 ```bash
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker "$USER"   # relogue para valer
+# 1. crie/atualize o arquivo de ambiente
+cp .env.production.example .env.production.local
+
+# 2. preencha DATABASE_URL (pooled) e DIRECT_URL (direta)
+#    O .env.production.local é ignorado pelo Git.
+
+# 3. aplique/revalide as migrations pela conexão direta
+npx prisma db migrate --db "<DIRECT_URL>"
+npx prisma db verify  --db "<DIRECT_URL>" --strict
+
+# 4. build e subida
+docker compose -f docker-compose.prod.yml \
+  --env-file .env.production.local \
+  up -d --build
 ```
 
-Passo a passo:
+A aplicação fica disponível em `http://localhost:3001`. A porta pode ser
+alterada com `APP_PORT` no `.env.production.local`:
 
-```bash
-# 1. no servidor: crie o .env a partir do exemplo e preencha a DATABASE_URL
-cp .env.production.example .env
-chmod 600 .env
-
-# 2. a partir do repositório (na sua máquina): aplique as migrations
-npx prisma db migrate --db "<DIRECT_URL de produção>"
-npx prisma db verify  --db "<DIRECT_URL de produção>" --strict
-
-# 3. no servidor: build e subida
-docker compose -f docker-compose.prod.yml up -d --build
+```env
+APP_PORT=3002
 ```
 
-A aplicação escuta somente em `127.0.0.1:3001` (não é exposta à internet) e o
-container tem healthcheck em `GET /api/health` a cada 30s. Para checar:
+> O compose de desenvolvimento (`docker-compose.yml`) também usa a porta
+> `3001`. Não rode os dois ao mesmo tempo sem trocar a porta.
+
+`DATABASE_URL` deve ser a string **pooled** do Neon. A `DIRECT_URL` (sem
+`-pooler`) é usada apenas pela CLI, fora do container. A imagem `standalone` não
+inclui a CLI do Prisma, por isso as migrations são aplicadas antes do deploy.
+Não rode `npm run seed` em produção.
+
+**Segurança:** rotacione a senha do role do Neon se ela tiver sido exposta e
+atualize `DATABASE_URL`/`DIRECT_URL` no `.env.production.local`. O arquivo não
+deve ser versionado nem copiado para dentro da imagem.
+
+Para checar:
 
 ```bash
-curl -fsS https://$DOMAIN/api/health          # p\u00fablico via Caddy
-curl -fsS "https://$DOMAIN/api/health?db=1"     # inclui o Neon (manual)
-docker compose -f docker-compose.prod.yml ps
+curl -fsS http://localhost:3001/api/health
+curl -fsS "http://localhost:3001/api/health?db=1"
+
+docker compose -f docker-compose.prod.yml \
+  --env-file .env.production.local ps
+
 docker inspect --format '{{.State.Health.Status}}' \
-  "$(docker compose -f docker-compose.prod.yml ps -q app)"
-docker compose -f docker-compose.prod.yml logs -f --tail=100
+  "$(docker compose -f docker-compose.prod.yml \
+    --env-file .env.production.local ps -q app)"
+
+docker compose -f docker-compose.prod.yml \
+  --env-file .env.production.local logs -f --tail=100
 ```
 
 > O healthcheck padrão não consulta o Neon de propósito: uma consulta a cada
 > 30s impediria a suspensão automática do banco. `?db=1` é para uso manual.
 
-`DATABASE_URL` deve ser a string **pooled** do Neon. A `DIRECT_URL` (sem
-`-pooler`) é usada apenas pela CLI, fora do container. A imagem `standalone` não
-inclui a CLI do Prisma, por isso as migrations são aplicadas antes do deploy.
+Para parar:
+
+```bash
+docker compose -f docker-compose.prod.yml \
+  --env-file .env.production.local down
+```
 
 **Rollback:** a imagem é tagueada com `${TAG:-latest}`. Para voltar a um commit
 anterior:
 
 ```bash
 git checkout <commit-anterior>
-TAG=<commit-anterior> docker compose -f docker-compose.prod.yml up -d --build
+TAG=<commit-anterior> docker compose -f docker-compose.prod.yml \
+  --env-file .env.production.local up -d --build
 ```
 
-A publicação em 80/443 e o TLS ficam com o proxy reverso (Caddy) da issue #27.
+> Rollback da imagem não desfaz migrations. Se houve mudança de schema, faça
+> backup/snapshot do Neon antes de aplicar e planeje o rollback do banco.
+
+Sem Caddy, não há HTTPS nem domínio configurado neste ambiente. Use o acesso
+local ou coloque a aplicação atrás de um proxy/WAF se for expô-la a outras
+máquinas.
 
 ## Scripts disponíveis
 
