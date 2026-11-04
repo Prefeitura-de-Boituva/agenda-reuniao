@@ -37,7 +37,8 @@ export async function GET(request: Request) {
     await db.orm.public.Agendamento.where({ id: crypto.randomUUID() }).all();
     body.database = "ok";
     return Response.json(body, { status: 200 });
-  } catch {
+  } catch (error) {
+    console.error("[health] Falha ao consultar o banco:", error);
     body.status = "error";
     body.database = "error";
     return Response.json(body, { status: 503 });
