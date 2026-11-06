@@ -188,7 +188,7 @@ function BookingFormModal({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={!!conflict || slotError !== null}>
+            <Button type="submit" disabled={!!conflict || slotError !== null || pastError !== null}>
               {mode === "create" ? "Agendar" : "Salvar"}
             </Button>
           </ModalFooter>

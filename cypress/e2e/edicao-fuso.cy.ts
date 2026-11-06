@@ -71,10 +71,10 @@ describe('Edição de agendamento — bloqueio de horário já passado no dia co
       .should('contain.text', 'Horário já passou no dia atual.');
   });
 
-  it('não persiste a edição mesmo com o botão Salvar clicável', () => {
-    // O `disabled` do botão não considera `pastError`, então a barreira real é o
-    // retorno antecipado de `handleSubmit`: o modal tem de permanecer aberto.
-    cy.contains('button', 'Salvar').click();
+  it('desabilita o Salvar enquanto o horário do dia já passou', () => {
+    // O retorno antecipado de `handleSubmit` já barrava a gravação, mas o botão
+    // permanecia clicável: o clique não dava nenhuma indicação além da mensagem.
+    cy.contains('button', 'Salvar').should('be.disabled');
     cy.get("[role='dialog']").should('be.visible');
     cy.get('[role="alert"]').first().should('contain.text', 'Horário já passou no dia atual.');
   });
