@@ -35,6 +35,41 @@ npm run dev
 
 Abra [http://localhost:3000](http://localhost:3000) no navegador.
 
+## Testes automatizados e portas
+
+| Comando | O que roda | Precisa de |
+| --- | --- | --- |
+| `npm run test:run` | testes unitários (vitest), sem servidor | nenhuma porta |
+| `npm run test:e2e` | specs em `cypress/e2e/` contra a UI | `npm run dev` na **3000** |
+
+O Cypress lê `http://localhost:3000` do `cypress.config.ts`. Se essa porta já estiver
+ocupada por outra cópia do projeto, o `next dev` sobe sozinho na primeira livre (3002 em
+diante) e o `npm run test:e2e` passa a testar **a cópia errada, sem avisar**. Antes de
+rodar, confirme que o processo da 3000 pertence ao diretório desejado:
+
+```bash
+netstat -ano | findstr :3000        # anote o PID da coluna seguinte
+```
+
+```powershell
+# confirme que o PID pertence ao diretório que você quer testar
+# (o wmic foi removido do Windows 11 24H2; use Get-CimInstance)
+powershell -Command "(Get-CimInstance Win32_Process -Filter 'ProcessId=<PID>').CommandLine"
+```
+
+```bash
+npx cypress run --config baseUrl=http://localhost:3002   # ou force a porta certa
+```
+
+A porta **3001** pertence ao container de produção local (seções "Docker" abaixo), não ao
+`next dev`; os specs de e2e nunca devem apontar para ela, porque ela grava no Neon real.
+
+`cancelamento.cy.ts` semeia e remove agendamentos pela API real, então exige
+`DATABASE_URL` configurada no `.env`. Sem banco, a rota responde 500 e a suíte se marca
+como *pendente* (skip) em vez de reportar falha de produto; os demais specs não dependem
+de banco.
+
+
 ## Banco de dados (Neon)
 
 O projeto usa **Prisma 8** (contract-first). O contrato está em

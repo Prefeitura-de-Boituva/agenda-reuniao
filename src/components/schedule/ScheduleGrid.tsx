@@ -16,7 +16,7 @@ import { ROOMS } from "@/lib/rooms";
 import { NovoAgendamentoModal } from "./NovoAgendamentoModal";
 import { CancelarAgendamentoModal } from "./CancelarAgendamentoModal";
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Toast } from "@/components/ui";
-import { getSlotError, isSlotValido } from "@/lib/validations";
+import { getSlotError, isPastToday, isSlotValido } from "@/lib/validations";
 import { cn } from "@/lib/utils";
 
 function computeEndTime(startTime: string, durationBlocks: number): string {
@@ -94,15 +94,6 @@ function BookingFormModal({
   const endTime = computeEndTime(startTime, durationBlocks);
   const conflict = findConflict(startTime, durationBlocks);
   const slotError = isSlotValido(startTime, endTime) ? null : getSlotError(startTime, endTime);
-
-  const isPastToday = (dateStr: string, timeStr: string): boolean => {
-    const now = new Date();
-    const today = now.toISOString().slice(0, 10);
-    if (dateStr !== today) return false;
-    const [h, m] = timeStr.split(":").map(Number);
-    const minutesNow = now.getHours() * 60 + now.getMinutes();
-    return h * 60 + m < minutesNow;
-  };
 
   const pastError = isPastToday(date, startTime) ? "Horário já passou no dia atual." : null;
 
@@ -197,7 +188,7 @@ function BookingFormModal({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={!!conflict || slotError !== null}>
+            <Button type="submit" disabled={!!conflict || slotError !== null || pastError !== null}>
               {mode === "create" ? "Agendar" : "Salvar"}
             </Button>
           </ModalFooter>

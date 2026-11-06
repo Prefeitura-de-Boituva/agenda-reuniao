@@ -51,7 +51,7 @@ export default function Home() {
       </section>
 
       <SalaTabs selectedSala={selectedSala} onSelect={setSelectedSala} className="mb-4" />
-      <div className="flex items-end gap-4">
+      <div className="flex flex-wrap items-end gap-4">
         <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} className="flex-1" />
         <Link href={`/grade?date=${selectedDate}&room=${ROOM_BY_SALA[selectedSala]}`} className={buttonClasses({ variant: "primary", size: "md" })}>
           Ver na Grade de Horários
