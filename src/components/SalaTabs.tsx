@@ -44,7 +44,7 @@ export const SalaTabs: React.FC<SalaTabsProps> = ({ selectedSala = "Sala Azul", 
         tabs={tabs}
         activeTab={selectedSala}
         onChange={onSelect}
-        activeTabClassName={`border-b-2 ${color.border} text-neutral-900`}
+        activeTabClassName={`border-b-2 ${color.border} ${color.label}`}
       />
     </div>
   );

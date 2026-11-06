@@ -1,13 +1,13 @@
 import type { Booking } from "@/types/schedule";
 
-export interface BookingOverrideEntry {
+interface BookingOverrideEntry {
   upserts: Booking[];
   deletedIds: string[];
 }
 
 export type RoomOverrides = Record<string, BookingOverrideEntry>;
 
-export interface PersistedGradeState {
+interface PersistedGradeState {
   overrides: Record<string, RoomOverrides>;
   selectedRoomId: string;
   weekStartIso: string;

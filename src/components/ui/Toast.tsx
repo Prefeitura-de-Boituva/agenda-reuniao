@@ -16,6 +16,7 @@ export interface ToastProps {
 export function Toast({ show, onClose, children, className, autoHideMs = 3000 }: ToastProps) {
   const [domReady, setDomReady] = useState(false);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- o portal só pode ser renderizado no cliente
   useEffect(() => setDomReady(true), []);
 
   useEffect(() => {

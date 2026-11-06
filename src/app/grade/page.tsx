@@ -1,5 +1,9 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect -- os effects abaixo sincronizam
+   estado persistido (localStorage), parâmetros de URL e o loading do fetch; cada
+   um roda após a hidratação de propósito e refatorá-los mudaria o comportamento. */
+
 import { useEffect, useMemo, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ScheduleGrid } from "@/components/schedule";
@@ -8,6 +12,7 @@ import { getWeekDates, getWeekStart, parseDate, shiftDate, toISODate } from "@/l
 import { loadGradeState, saveGradeState } from "@/lib/storage";
 import type { Booking } from "@/types/schedule";
 import { ROOMS } from "@/lib/rooms";
+import { applyRoomTint } from "@/lib/room-colors";
 import type { RoomOverrides } from "@/lib/storage";
 
 function GradeContent() {
@@ -56,21 +61,9 @@ function GradeContent() {
     }
   }, [hydrated, roomParam]);
 
-  // Light background tint per room — applied to body + page wrapper
-  const pageBgClass =
-    selectedRoomId === "sala-azul"
-      ? "bg-primary-50"
-      : selectedRoomId === "sala-verde"
-        ? "bg-success-50"
-        : selectedRoomId === "sala-amarela"
-          ? "bg-warning-50"
-          : "bg-primary-50";
-
-  // Apply bg color to body (full page coverage incl. header area)
+  // Light background tint per room, aplicado ao body
   useEffect(() => {
-    const bodyClasses = ["bg-primary-50", "bg-success-50", "bg-warning-50", "bg-white"];
-    document.body.classList.remove(...bodyClasses);
-    document.body.classList.add(pageBgClass);
+    applyRoomTint(selectedRoomId);
   }, [selectedRoomId]);
 
   useEffect(() => {

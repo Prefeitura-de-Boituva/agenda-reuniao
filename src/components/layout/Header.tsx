@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface HeaderProps {
@@ -52,7 +53,13 @@ export function Header({ className }: HeaderProps) {
           href="/"
           className="flex items-center gap-2 font-semibold text-white"
         >
-          <CalendarDays className="size-5" aria-hidden="true" />
+          <Image
+            src="/logo-branco.png"
+            alt=""
+            width={27}
+            height={24}
+            className="h-6 w-auto"
+          />
           <span className="text-body hidden sm:inline">Agenda de Reuniões</span>
           <span className="text-body sm:hidden">Agenda</span>
         </Link>

@@ -1,9 +1,10 @@
 "use client";
-import { CalendarDays } from "lucide-react";
 import { useEffect, useState } from "react";
 import SalaTabs from "@/components/SalaTabs";
 import DateSelector from "@/components/DateSelector";
 import { buttonClasses } from "@/components/ui";
+import { BrandLogo } from "@/components/layout";
+import { applyRoomTint } from "@/lib/room-colors";
 import { toISODate } from "@/lib/schedule";
 import Link from "next/link";
 import Agenda from "@/components/Agenda";
@@ -20,26 +21,16 @@ export default function Home() {
 
   // Apply light background tint to whole page based on selected room
   useEffect(() => {
-    const roomId = ROOM_BY_SALA[selectedSala] ?? "sala-azul";
-    const bgClass =
-      roomId === "sala-azul"
-        ? "bg-primary-50"
-        : roomId === "sala-verde"
-          ? "bg-success-50"
-          : roomId === "sala-amarela"
-            ? "bg-warning-50"
-            : "bg-primary-50";
-    document.body.classList.remove("bg-primary-50", "bg-success-50", "bg-warning-50", "bg-background");
-    document.body.classList.add(bgClass);
+    applyRoomTint(ROOM_BY_SALA[selectedSala] ?? "sala-azul");
   }, [selectedSala]);
   return (
     <div className="flex flex-col gap-8 py-8">
       <section className="flex flex-col gap-2">
         <h1 className="text-h2 font-bold text-neutral-900 flex items-center gap-2">
-          <CalendarDays className="size-7 text-primary" />
+          <BrandLogo />
           Agenda de Reuniões
         </h1>
-        <p className="text-body text-neutral-500">
+        <p className="text-body text-neutral-600">
           Gerencie as salas e horários de reunião da Prefeitura de Boituva.
         </p>
       </section>
@@ -66,7 +57,7 @@ export default function Home() {
       </section>
 
       <SalaTabs selectedSala={selectedSala} onSelect={setSelectedSala} className="mb-4" />
-      <div className="flex items-end gap-4">
+      <div className="flex flex-wrap items-end gap-4">
         <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} className="flex-1" />
         <Link href={`/grade?date=${selectedDate}&room=${ROOM_BY_SALA[selectedSala]}`} className={buttonClasses({ variant: "primary", size: "md" })}>
           Ver na Grade de Horários

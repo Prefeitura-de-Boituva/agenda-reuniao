@@ -12,6 +12,8 @@ import {
 import { useState, useEffect, useRef } from "react";
 import type { Booking } from "@/types/schedule";
 import { cancelarAgendamento, ApiError } from "@/lib/apiClient";
+import { ROOMS } from "@/lib/rooms";
+import { formatDate, parseDate } from "@/lib/schedule";
 
 interface CancelarAgendamentoModalProps {
   booking: Booking;
@@ -28,6 +30,7 @@ export function CancelarAgendamentoModal({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const roomName = ROOMS.find((r) => r.id === booking.roomId)?.name ?? booking.roomId;
 
   useEffect(() => {
     if (booking) {
@@ -76,10 +79,10 @@ export function CancelarAgendamentoModal({
           <ModalHeader>Cancelar Agendamento</ModalHeader>
           <ModalBody className="flex flex-col gap-4">
             <p>
-              <strong>Sala:</strong> {booking.roomId}
+              <strong>Sala:</strong> {roomName}
             </p>
             <p>
-              <strong>Data:</strong> {booking.date}
+              <strong>Data:</strong> {formatDate(parseDate(booking.date))}
             </p>
             <p>
               <strong>Horário:</strong> {booking.startTime} – {booking.endTime}

@@ -40,7 +40,7 @@ export const DateSelector: React.FC<{
   const isPrevDisabled = selectedDate <= todayISO; // cannot go before today
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex flex-wrap items-center gap-2", className)}>
       <label htmlFor="date-selector-input" className="sr-only">
         Selecionar data
       </label>
@@ -51,6 +51,7 @@ export const DateSelector: React.FC<{
         aria-label="Dia anterior"
         className={cn(
           "rounded-lg border border-neutral-300 bg-white p-2 text-neutral-600 hover:bg-neutral-50",
+          "focus:outline-none focus:ring-2 focus:ring-primary-100",
           isPrevDisabled && "opacity-50 cursor-not-allowed"
         )}
       >

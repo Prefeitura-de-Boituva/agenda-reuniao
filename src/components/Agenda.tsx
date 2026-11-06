@@ -1,6 +1,6 @@
 import React from "react";
 
-export interface AgendaItem {
+interface AgendaItem {
   id: string;
   title: string;
   time: string; // e.g., "09:00 - 10:00"

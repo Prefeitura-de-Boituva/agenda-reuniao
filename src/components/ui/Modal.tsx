@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, forwardRef, useContext, useEffect, useRef, useState } from "react";
+import { createContext, forwardRef, useContext, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
@@ -27,7 +27,6 @@ export interface ModalProps {
 }
 
 export function Modal({ open = false, onClose = () => {}, children, className }: ModalProps) {
-  const [mounted, setMounted] = useState(true);
   const previousActiveElement = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
