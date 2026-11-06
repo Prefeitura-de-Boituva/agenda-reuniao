@@ -95,6 +95,19 @@ DIRECT_URL="postgresql://USUARIO:SENHA@ep-xxxx.regiao.aws.neon.tech/neondb?sslmo
 
 > O `.env` está no `.gitignore`. Nunca commite credenciais.
 
+Para desenvolver sem Neon, use a opção 1 do `.env.example` (Postgres local):
+
+```bash
+docker compose up -d postgres   # só o banco; o serviço app ocuparia a 3001
+npm run db:migrate              # aplica migrations/app/ no banco local
+```
+
+O `next dev` lê o `.env` apenas ao subir: depois de criá-lo ou alterá-lo,
+reinicie o servidor. Sem `DATABASE_URL`, a API responde 500
+("Erro interno ao criar agendamento.") e a grade ainda mostra os slots como
+livres, porque o GET falha em silêncio — o sintoma parece bug de tela, mas é
+banco ausente.
+
 ### 2. Verificar a conexão e o schema
 
 ```bash
