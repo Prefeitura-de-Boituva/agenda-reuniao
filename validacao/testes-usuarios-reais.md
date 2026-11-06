@@ -113,7 +113,7 @@ erro — este cenário elimina a dúvida.
 | Passo | O que fazer | O que deve acontecer |
 |---|---|---|
 | C4.1 | Abrir **Novo agendamento** e clicar no campo **Data** | O calendário **não permite escolher** nenhum dia anterior a hoje (os dias passados ficam apagados/desabilitados) |
-| C4.2 | Na grade, clicar numa célula de um dia que já passou | **Nada acontece** — o modal de criação não abre |
+| C4.2 | Na grade, clicar numa célula `LIVRE` (verde) de um dia que já passou | **Nada acontece** — a célula continua verde e parece livre, mas o modal de criação **não** abre. Isso é proposital (a semana passada fica navegável para consulta), **não é botão queimado** |
 | C4.3 | Mesmo assim, se você conseguir digitar uma data passada e confirmar | Mensagem **"Erro 400: Não é possível agendar para uma data passada."** |
 
 **Coleta C4** — Foi impossível, por engano, agendar em uma data passada: (sim / não)
