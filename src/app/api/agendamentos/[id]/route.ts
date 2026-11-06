@@ -1,6 +1,7 @@
 import { buscarAgendamento, validarDepartamento } from "@/lib/agendamentos";
 import { jaPassou } from "@/lib/validations";
 import { db } from "@/prisma/db";
+import { registrarErroDb } from "@/prisma/errors";
 
 export async function DELETE(
   request: Request,
@@ -66,7 +67,8 @@ export async function DELETE(
       { message: "Agendamento cancelado com sucesso." },
       { status: 200 }
     );
-  } catch {
+  } catch (erro) {
+    registrarErroDb(erro, 'DELETE /api/agendamentos/[id]');
     return Response.json(
       { error: "Erro interno ao cancelar agendamento." },
       { status: 500 }

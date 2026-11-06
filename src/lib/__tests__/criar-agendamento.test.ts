@@ -489,7 +489,10 @@ describe("POST /api/agendamentos – criação", () => {
   });
 
   describe("500 – falha de persistência", () => {
-    it("devolve 500 quando o create falha", async () => {
+    it("devolve 500 e registra o erro quando o create falha", async () => {
+      // `registrarErroDb` escreve no console; o spy mantém a saída da suíte
+      // limpa e verifica que a falha não é mais engolida por um `catch {}`.
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
       (db.orm.public.Agendamento.create as unknown as ReturnType<typeof vi.fn>)
         .mockRejectedValueOnce(new Error("conexão recusada"));
 
@@ -498,6 +501,66 @@ describe("POST /api/agendamentos – criação", () => {
       expect(status).toBe(500);
       expect(json.error).toBe("Erro interno ao criar agendamento.");
       expect(_store).toHaveLength(0);
+      expect(consoleError).toHaveBeenCalledWith(
+        expect.stringContaining("POST /api/agendamentos"),
+        expect.any(Error)
+      );
+      consoleError.mockRestore();
+    });
+
+    it("devolve 500 quando a checagem de conflito não alcança o banco", async () => {
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      // O `temConflito` agora divide o `try` do `create`: sem isso, a falha de
+      // conexão escapava como exceção não tratada do handler.
+      (db.orm.public.Agendamento.where as unknown as ReturnType<typeof vi.fn>)
+        .mockImplementationOnce(() => {
+          throw new Error("connection terminated");
+        });
+
+      const { status, json } = await post(bodyValido);
+
+      expect(status).toBe(500);
+      expect(json.error).toBe("Erro interno ao criar agendamento.");
+      expect(_store).toHaveLength(0);
+      consoleError.mockRestore();
+    });
+  });
+
+  describe("409 – constraint @@unique do banco (corrida)", () => {
+    /** Shape real registrado contra o Neon: `SqlQueryError` no topo, driver no `cause`. */
+    const erroDeUnique = () => {
+      const causa = Object.assign(
+        new Error('duplicate key value violates unique constraint "agendamento_sala_data_horaInicio_key"'),
+        { code: "23505" }
+      );
+      return Object.assign(
+        new Error('duplicate key value violates unique constraint "agendamento_sala_data_horaInicio_key"', {
+          cause: causa,
+        }),
+        { name: "SqlQueryError", kind: "sql_query", sqlState: "23505" }
+      );
+    };
+
+    it("traduz a violação da constraint na mesma mensagem de conflito", async () => {
+      // Simula as duas requisições que passaram juntas pelo `temConflito` e
+      // disputaram o slot no INSERT.
+      (db.orm.public.Agendamento.create as unknown as ReturnType<typeof vi.fn>)
+        .mockRejectedValueOnce(erroDeUnique());
+
+      const { status, json } = await post(bodyValido);
+
+      expect(status).toBe(409);
+      expect(json.error).toBe("Horário conflita com agendamento existente");
+      expect(_store).toHaveLength(0);
+    });
+
+    it("não vaza o texto nem o detalhe do driver na resposta", async () => {
+      (db.orm.public.Agendamento.create as unknown as ReturnType<typeof vi.fn>)
+        .mockRejectedValueOnce(erroDeUnique());
+
+      const { json } = await post(bodyValido);
+
+      expect(JSON.stringify(json)).not.toMatch(/23505|SqlQueryError|duplicate key/);
     });
   });
 });
