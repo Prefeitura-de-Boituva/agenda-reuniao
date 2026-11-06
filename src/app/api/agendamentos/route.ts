@@ -11,6 +11,11 @@ import {
   MSG_DATA_PASSADA,
 } from "@/lib/validations";
 import { db } from "@/prisma/db";
+import {
+  MSG_CONFLITO_HORARIO,
+  categorizarErroDb,
+  registrarErroDb,
+} from "@/prisma/errors";
 import type { Models } from "@/prisma/contract.d";
 
 /**
@@ -93,18 +98,6 @@ export async function POST(request: Request) {
     return Response.json({ error: slotError }, { status: 400 });
   }
 
-  // Verifica conflito de horário antes de criar o agendamento
-  const conflito = await temConflito(salaValida, data, horaInicio, horaFim);
-
-  if (conflito) {
-    return Response.json(
-      { error: "Horário conflita com agendamento existente" },
-      { status: 409 }
-    );
-  }
-
-
-  // Persist the new agendamento
   const novoAgendamento = {
     id: crypto.randomUUID(),
     nome,
@@ -116,12 +109,25 @@ export async function POST(request: Request) {
     criadoEm: new Date().toISOString(),
   };
 
-  // Persist the new agendamento. Falha de infraestrutura no banco não pode
-  // escapar como erro não tratado: devolvemos 500 com a mesma forma de erro
-  // usada pelo handler GET.
+  // Checagem de sobreposição e gravação no mesmo `try`: falha de
+  // infraestrutura (banco fora do ar, `DATABASE_URL` ausente) não pode escapar
+  // como exceção não tratada nem no `temConflito`, nem no `create`.
   try {
+    const conflito = await temConflito(salaValida, data, horaInicio, horaFim);
+
+    if (conflito) {
+      return Response.json({ error: MSG_CONFLITO_HORARIO }, { status: 409 });
+    }
+
     await db.orm.public.Agendamento.create(novoAgendamento);
-  } catch {
+  } catch (erro) {
+    // A constraint `@@unique([sala, data, horaInicio])` é o desempate quando duas
+    // requisições simultâneas passam juntas pelo `temConflito`: o perdedor
+    // precisa responder 409, e não 500.
+    if (categorizarErroDb(erro) === 'conflito') {
+      return Response.json({ error: MSG_CONFLITO_HORARIO }, { status: 409 });
+    }
+    registrarErroDb(erro, 'POST /api/agendamentos');
     return Response.json(
       { error: "Erro interno ao criar agendamento." },
       { status: 500 }
@@ -152,7 +158,8 @@ export async function GET(request: Request): Promise<Response> {
       .orderBy((a) => a.horaInicio.asc())
       .all();
     return Response.json(agendamentos, { status: 200 });
-  } catch {
+  } catch (erro) {
+    registrarErroDb(erro, 'GET /api/agendamentos');
     return Response.json(
       { error: 'Erro interno ao buscar agendamentos.' },
       { status: 500 }
