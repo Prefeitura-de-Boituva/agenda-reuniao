@@ -40,7 +40,7 @@ export const DateSelector: React.FC<{
   const isPrevDisabled = selectedDate <= todayISO; // cannot go before today
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex flex-wrap items-center gap-2", className)}>
       <label htmlFor="date-selector-input" className="sr-only">
         Selecionar data
       </label>
