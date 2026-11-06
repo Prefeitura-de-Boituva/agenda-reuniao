@@ -52,6 +52,7 @@ onConfirm: (data: {
     }) => Promise<boolean> | boolean;
   salaInicial?: string;
   dataInicial?: string;
+  horarioInicial?: string;
   externalError?: string | null;
 }
 
@@ -61,6 +62,7 @@ export function NovoAgendamentoModal({
   onConfirm,
   salaInicial,
   dataInicial,
+  horarioInicial,
   externalError,
 }: NovoAgendamentoModalProps) {
   // `toISODate` usa os getters locais; `toISOString()` (UTC) fazia o `min`
@@ -68,8 +70,14 @@ export function NovoAgendamentoModal({
   const today = toISODate(new Date());
   const [sala, setSala] = useState(salaInicial ?? SALAS[0]);
   const [data, setData] = useState(dataInicial ?? today);
-  const [inicio, setInicio] = useState(SLOTS_INICIO[0]);
-  const [fim, setFim] = useState(SLOTS_FIM[0]);
+  // Vindo de um slot livre da grade, o início precisa ser o horário clicado;
+  // sem isso o usuário era obrigado a escolher o horário de novo.
+  const inicioInicial =
+    horarioInicial && SLOTS_INICIO.includes(horarioInicial)
+      ? horarioInicial
+      : SLOTS_INICIO[0];
+  const [inicio, setInicio] = useState(inicioInicial);
+  const [fim, setFim] = useState(SLOTS_FIM[SLOTS_INICIO.indexOf(inicioInicial)]);
   const [nome, setNome] = useState("");
   const [departamento, setDepartamento] = useState("");
   const [loading, setLoading] = useState(false);
