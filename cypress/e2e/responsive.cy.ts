@@ -1,3 +1,19 @@
+// O clique pode cair antes da hidratação do React e não ter efeito;
+// repete até o alvo montar, sem clicar de novo quando já está aberto.
+function repetirAte(condicao: string, clique: () => void, rotulo: string) {
+  const tentar = (restantes: number) => {
+    cy.get("body").then(($body) => {
+      if ($body.find(condicao).length > 0) return;
+      expect(restantes, rotulo).to.be.greaterThan(0);
+      clique();
+      cy.wait(250);
+      tentar(restantes - 1);
+    });
+  };
+  tentar(6);
+  cy.get(condicao).should("be.visible");
+}
+
 describe("Responsividade e Acessibilidade", () => {
   const viewports = [
     { name: "Mobile 320px", width: 320, height: 568 },
@@ -23,6 +39,7 @@ describe("Responsividade e Acessibilidade", () => {
       });
 
       it("grade de horarios esta legivel", () => {
+        cy.visit("/grade");
         cy.get("table").should("be.visible");
       });
 
@@ -34,7 +51,12 @@ describe("Responsividade e Acessibilidade", () => {
       });
 
       it("navegacao por teclado funciona - foco visivel", () => {
-        cy.get("header button[aria-label='Abrir menu']").focus().should("be.focused");
+        // O botão de menu é md:hidden: acima de 768px o foco vai para a nav desktop.
+        const seletor =
+          width < 768
+            ? "header button[aria-label='Abrir menu']"
+            : "header nav[aria-label='Navegação principal'] a";
+        cy.get(seletor).first().focus().should("be.focused");
       });
 
       it("contrast adequado (WCAG AA)", () => {
@@ -50,16 +72,24 @@ describe("Responsividade e Acessibilidade", () => {
       cy.visit("/");
     });
 
+    function abrirMenuMobile() {
+      repetirAte(
+        "#mobile-nav",
+        () => cy.get("button[aria-label='Abrir menu']").click(),
+        "tentativas de abrir o menu mobile"
+      );
+    }
+
     it("botao de menu abre e fecha corretamente", () => {
       cy.get("button[aria-label='Abrir menu']").should("be.visible");
-      cy.get("button[aria-label='Abrir menu']").click();
-      cy.get("#mobile-nav").should("be.visible");
+      abrirMenuMobile();
       cy.get("button[aria-label='Fechar menu']").click();
-      cy.get("#mobile-nav").should("not.be.visible");
+      // O nav é desmontado ao fechar; "not.be.visible" falharia por elemento inexistente.
+      cy.get("#mobile-nav").should("not.exist");
     });
 
     it("links do menu mobile tem aria-current quando ativos", () => {
-      cy.get("button[aria-label='Abrir menu']").click();
+      abrirMenuMobile();
       cy.get("#mobile-nav a[aria-current='page']").should("exist");
     });
   });
@@ -70,13 +100,20 @@ describe("Responsividade e Acessibilidade", () => {
       cy.visit("/grade");
     });
 
+    function abrirNovoAgendamento() {
+      repetirAte(
+        "[role='dialog']",
+        () => cy.contains("button", "Novo agendamento").click(),
+        "tentativas de abrir o modal de novo agendamento"
+      );
+    }
+
     it("botao Novo agendamento abre modal responsivo", () => {
-      cy.contains("Novo agendamento").click();
-      cy.get("[role='dialog']").should("be.visible");
+      abrirNovoAgendamento();
     });
 
     it("botao fechar fecha o modal", () => {
-      cy.contains("Novo agendamento").click();
+      abrirNovoAgendamento();
       cy.get("button[aria-label='Fechar']").click();
       cy.get("[role='dialog']").should("not.exist");
     });
