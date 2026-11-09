@@ -51,6 +51,7 @@ export const DateSelector: React.FC<{
         aria-label="Dia anterior"
         className={cn(
           "rounded-lg border border-neutral-300 bg-white p-2 text-neutral-600 hover:bg-neutral-50",
+          "focus:outline-none focus:ring-2 focus:ring-primary-100",
           isPrevDisabled && "opacity-50 cursor-not-allowed"
         )}
       >

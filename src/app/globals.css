@@ -91,7 +91,9 @@
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
+  min-width: 100vw;
   color: var(--foreground);
   font-family: var(--font-sans);
+  overflow-x: hidden;
 }

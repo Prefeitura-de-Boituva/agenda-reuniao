@@ -1,9 +1,10 @@
 "use client";
-import { CalendarDays } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SalaTabs from "@/components/SalaTabs";
 import DateSelector from "@/components/DateSelector";
-import { Button, Input, buttonClasses } from "@/components/ui";
+import { buttonClasses } from "@/components/ui";
+import { BrandLogo } from "@/components/layout";
+import { applyRoomTint } from "@/lib/room-colors";
 import { toISODate } from "@/lib/schedule";
 import Link from "next/link";
 import Agenda from "@/components/Agenda";
@@ -17,14 +18,19 @@ const ROOM_BY_SALA: Record<string, string> = {
 export default function Home() {
   const [selectedSala, setSelectedSala] = useState<string>("Sala Azul");
   const [selectedDate, setSelectedDate] = useState<string>(toISODate(new Date()));
+
+  // Apply light background tint to whole page based on selected room
+  useEffect(() => {
+    applyRoomTint(ROOM_BY_SALA[selectedSala] ?? "sala-azul");
+  }, [selectedSala]);
   return (
     <div className="flex flex-col gap-8 py-8">
       <section className="flex flex-col gap-2">
         <h1 className="text-h2 font-bold text-neutral-900 flex items-center gap-2">
-          <CalendarDays className="size-7 text-primary" />
+          <BrandLogo />
           Agenda de Reuniões
         </h1>
-        <p className="text-body text-neutral-500">
+        <p className="text-body text-neutral-600">
           Gerencie as salas e horários de reunião da Prefeitura de Boituva.
         </p>
       </section>
@@ -59,41 +65,6 @@ export default function Home() {
       </div>
 
       <Agenda selectedSala={selectedSala} />
-
-      <section className="flex flex-col gap-4 rounded-xl bg-white p-6 shadow-card border border-neutral-200 max-w-md">
-        <h2 className="text-h3 font-semibold text-neutral-900">
-          Componentes do Design System
-        </h2>
-
-        <div className="flex flex-col gap-1.5">
-          <h3 className="text-caption font-medium text-neutral-700">Botões</h3>
-          <div className="flex flex-wrap gap-2">
-            <Button>Primary</Button>
-            <Button variant="secondary">Secondary</Button>
-            <Button variant="outline">Outline</Button>
-            <Button variant="ghost">Ghost</Button>
-            <Button variant="danger">Danger</Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm">Pequeno</Button>
-            <Button size="md">Médio</Button>
-            <Button size="lg">Grande</Button>
-          </div>
-          <Button loading>Carregando...</Button>
-          <Button disabled>Desabilitado</Button>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <h3 className="text-caption font-medium text-neutral-700">Inputs</h3>
-          <Input label="Nome da Sala" placeholder="Ex: Sala Azul" />
-          <Input
-            label="Buscar"
-            placeholder="Pesquisar..."
-            helperText="Digite pelo menos 3 caracteres"
-          />
-          <Input label="Campo com erro" placeholder="..." error="Este campo é obrigatório" />
-        </div>
-      </section>
     </div>
   );
 }

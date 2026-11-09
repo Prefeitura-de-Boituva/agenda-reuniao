@@ -19,31 +19,6 @@ async function lerErro(response: Response, fallback: string): Promise<never> {
   throw new ApiError(response.status, message);
 }
 
-export async function criarAgendamento(payload: {
-  nome: string;
-  departamento: string;
-  sala: string;
-  data: string; // YYYY-MM-DD
-  horaInicio: string; // HH:mm
-  horaFim: string; // HH:mm
-}) {
-  const response = await fetch('/api/agendamentos', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    // status not 2xx → lê o JSON de erro e lança ApiError com status+mensagem
-    await lerErro(response, "Erro ao criar agendamento");
-  }
-
-  // sucesso → devolve o objeto criado
-  return response.json();
-}
-
 export async function cancelarAgendamento(id: string, departamento: string) {
   const response = await fetch(`/api/agendamentos/${id}`, {
     method: "DELETE",

@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Artefatos gerados pelo `prisma contract emit` (não seguem nossas regras):
+    "src/prisma/contract.d.ts",
+    "migrations/snapshots/**",
+    // Scripts CommonJS de teste manual da API, executados direto no Node:
+    "test-post.js",
+    "test-post.cjs",
   ]),
 ]);
 

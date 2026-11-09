@@ -34,10 +34,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Corpo da requisição inválido." }, { status: 400 });
   }
 
-  const { nome, departamento, sala, data, horaInicio, horaFim } = (body ?? {}) as Record<
-    string,
-    unknown
-  >;
+  const { nome, departamento, sala, data, horaInicio, horaFim } = (body ?? {}) as Record<string, unknown>;
 
   if (
     typeof nome !== "string" ||

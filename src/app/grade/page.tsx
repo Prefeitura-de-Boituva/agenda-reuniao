@@ -1,5 +1,9 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect -- os effects abaixo sincronizam
+   estado persistido (localStorage), parâmetros de URL e o loading do fetch; cada
+   um roda após a hidratação de propósito e refatorá-los mudaria o comportamento. */
+
 import { useEffect, useMemo, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ScheduleGrid } from "@/components/schedule";
@@ -8,13 +12,14 @@ import { getWeekDates, getWeekStart, parseDate, shiftDate, toISODate } from "@/l
 import { loadGradeState, saveGradeState } from "@/lib/storage";
 import type { Booking } from "@/types/schedule";
 import { ROOMS } from "@/lib/rooms";
+import { applyRoomTint } from "@/lib/room-colors";
 import type { RoomOverrides } from "@/lib/storage";
 
 function GradeContent() {
   const searchParams = useSearchParams();
   const dateParam = searchParams?.get("date");
   const roomParam = searchParams?.get("room");
-  
+
   const [selectedRoomId, setSelectedRoomId] = useState<string>(ROOMS[0].id);
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [fetched, setFetched] = useState<Record<string, Record<string, Booking[]>>>({});
@@ -55,6 +60,11 @@ function GradeContent() {
       setSelectedRoomId(roomParam);
     }
   }, [hydrated, roomParam]);
+
+  // Light background tint per room, aplicado ao body
+  useEffect(() => {
+    applyRoomTint(selectedRoomId);
+  }, [selectedRoomId]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -139,19 +149,21 @@ function GradeContent() {
   };
 
   return (
-    <ScheduleGrid
-      bookings={bookings}
-      isLoading={isLoading}
-      selectedRoomId={selectedRoomId}
-      onSelectRoom={handleSelectRoom}
-      weekStart={weekStart}
-      onNavigateWeek={handleNavigateWeek}
-      onGoToCurrentWeek={handleGoToCurrentWeek}
-      onCreateBooking={handleCreateBooking}
-      onUpdateBooking={handleUpdateBooking}
-      onDeleteBooking={handleDeleteBooking}
-      highlightedDate={highlightedDate}
-    />
+    <div className="min-h-screen w-full">
+      <ScheduleGrid
+        bookings={bookings}
+        isLoading={isLoading}
+        selectedRoomId={selectedRoomId}
+        onSelectRoom={handleSelectRoom}
+        weekStart={weekStart}
+        onNavigateWeek={handleNavigateWeek}
+        onGoToCurrentWeek={handleGoToCurrentWeek}
+        onCreateBooking={handleCreateBooking}
+        onUpdateBooking={handleUpdateBooking}
+        onDeleteBooking={handleDeleteBooking}
+        highlightedDate={highlightedDate}
+      />
+    </div>
   );
 }
 
