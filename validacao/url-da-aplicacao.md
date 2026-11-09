@@ -33,7 +33,7 @@ Dois bloqueios reais antes de convidar alguém:
 
 ## O que mudou no repositório depois deste levantamento
 
-Três mudanças na branch `feat/url-publica-vercel` (a partir do `develop` `b27579e`):
+Quatro mudanças na branch `feat/url-publica-vercel` (a partir do `develop` `b27579e`):
 
 1. **Fuso explícito.** `src/lib/fuso.ts` fixa `America/Sao_Paulo` nas regras RN12/RN16
    e na grade. Antes elas dependiam do fuso do processo: num host em UTC (caso da
@@ -45,12 +45,24 @@ Três mudanças na branch `feat/url-publica-vercel` (a partir do `develop` `b275
    acesso fica **fechado** — não aberto. Isso muda os `curl` deste guia: `/api/*`
    responde 401 sem cookie e as páginas redirecionam para `/entrar`.
    `/api/health` continua público, de propósito, por causa do healthcheck.
-3. **Preparo para a Vercel.** `vercel.json`, `.nvmrc`/`engines.node` em 24 e
-   `output: "standalone"` ligado só no build da imagem Docker (`DOCKER_BUILD=1`).
+3. **Preparo para a Vercel.** `vercel.json`, `.nvmrc`/`engines.node` em 24,
+   `output: "standalone"` ligado só no build da imagem Docker (`DOCKER_BUILD=1`) e
+   `.vercelignore` para a CLI não subir `.env`, `.git` nem as suítes de teste.
    O passo a passo de publicação está no README, seção **Deploy na Vercel**.
+4. **Correção do cenário C1 dentro da branch.** `origin/fix/horario-do-slot-e-criacao-local`
+   foi mesclada localmente (`bdac0db`, sem conflito): o formulário agora herda o horário
+   do slot clicado. A branch está publicável — não é mais preciso esperar o PR dela.
 
-> Nada disto foi publicado ainda: o container no ar continua o `8cd4e35`, sem portão
-> e sem o fuso explícito. Os bloqueios acima continuam valendo.
+Estado provado na branch mesclada: 213 testes unitários nos três fusos, `tsc --noEmit`
+limpo, ESLint sem erro nos arquivos tocados, `npm run build` registrando
+`ƒ Proxy (Middleware)`, `DOCKER_BUILD=1` gerando `.next/standalone/server.js` e
+**38 testes e2e verdes** contra o `npm run dev` da 3000 (incluindo `slot-horario.cy.ts`).
+O portão foi testado ao vivo em `next start`: 307/401/`200 + Set-Cookie` com senha e
+307/503/401 sem senha (fail-closed).
+
+> Nada disto foi publicado ainda: o container no ar continua o `8cd4e35`, sem portão e
+> sem o fuso explícito. Os bloqueios de alcance (firewall/reserva de DHCP) continuam
+> valendo para a opção A; para a opção C falta só a publicação, abaixo do seu login.
 
 ---
 
@@ -59,7 +71,8 @@ Três mudanças na branch `feat/url-publica-vercel` (a partir do `develop` `b275
 ```bash
 cd <repo>                                          # worktree que será publicado
 git fetch origin --prune
-git checkout develop && git pull --ff-only         # com o PR #57 e a correção mesclados
+git checkout develop && git pull --ff-only         # ou a branch feat/url-publica-vercel,
+                                                   # que já tem o PR #57 e a correção do slot
 
 # 1. arquivo de env do deploy (NUNCA versionar: .gitignore já cobre ".env*")
 cp .env.production.example .env.production.local
@@ -222,7 +235,9 @@ local e serve para desenvolvimento; os colaboradores testam o container de produ
 
 Cada bloco abaixo é autossuficiente; rode na ordem e pare no primeiro que falhar.
 
-**1. Publicar o código corrigido** (PR da `fix/horario-do-slot-e-criacao-local` já mesclado):
+**1. Publicar o código corrigido** (`feat/url-publica-vercel` já traz o PR #57, o fuso,
+o portão de senha e a correção do slot; para a opção A pela 3001, o `develop` ainda
+precisa do PR da `fix/horario-do-slot-e-criacao-local`):
 
 ```bash
 git checkout develop && git pull --ff-only && git rev-parse --short HEAD
