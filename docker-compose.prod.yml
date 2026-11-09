@@ -28,6 +28,10 @@ services:
       HOSTNAME: "0.0.0.0"
       TZ: America/Sao_Paulo
       DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL (connection string pooled do Neon)}
+      # Em produção o acesso é fechado sem senha: as páginas redirecionam para
+      # `/entrar` e o login responde 503. Exigir aqui faz o compose falhar antes
+      # de publicar uma agenda inutilizável.
+      ACCESS_PASSWORD: ${ACCESS_PASSWORD:?Defina ACCESS_PASSWORD (senha compartilhada do grupo)}
     init: true
     stop_grace_period: 30s
     restart: unless-stopped
