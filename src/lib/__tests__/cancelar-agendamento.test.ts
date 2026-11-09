@@ -218,6 +218,7 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
   });
 
   it("retorna 500 quando a consulta ao banco falha", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     agendamentoMock.buscarAgendamento.mockRejectedValue(new Error("falha"));
 
     const response = await DELETE(
@@ -229,5 +230,10 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     expect(await response.json()).toEqual({
       error: "Erro interno ao cancelar agendamento.",
     });
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining("DELETE /api/agendamentos/[id]"),
+      expect.any(Error)
+    );
+    consoleError.mockRestore();
   });
 });

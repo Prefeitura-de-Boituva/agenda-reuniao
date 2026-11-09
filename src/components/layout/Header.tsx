@@ -115,6 +115,7 @@ export function Header({ className }: HeaderProps) {
               href={link.href}
               onClick={handleCloseMenu}
               ref={index === 0 ? firstLinkRef : undefined}
+              aria-current={isActive(link.href) ? "page" : undefined}
               className={cn(
                 "block rounded-lg px-3 py-2 text-caption font-medium transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:outline-none",
                 isActive(link.href)

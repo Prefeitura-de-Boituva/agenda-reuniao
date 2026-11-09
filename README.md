@@ -35,6 +35,41 @@ npm run dev
 
 Abra [http://localhost:3000](http://localhost:3000) no navegador.
 
+## Testes automatizados e portas
+
+| Comando | O que roda | Precisa de |
+| --- | --- | --- |
+| `npm run test:run` | testes unitários (vitest), sem servidor | nenhuma porta |
+| `npm run test:e2e` | specs em `cypress/e2e/` contra a UI | `npm run dev` na **3000** |
+
+O Cypress lê `http://localhost:3000` do `cypress.config.ts`. Se essa porta já estiver
+ocupada por outra cópia do projeto, o `next dev` sobe sozinho na primeira livre (3002 em
+diante) e o `npm run test:e2e` passa a testar **a cópia errada, sem avisar**. Antes de
+rodar, confirme que o processo da 3000 pertence ao diretório desejado:
+
+```bash
+netstat -ano | findstr :3000        # anote o PID da coluna seguinte
+```
+
+```powershell
+# confirme que o PID pertence ao diretório que você quer testar
+# (o wmic foi removido do Windows 11 24H2; use Get-CimInstance)
+powershell -Command "(Get-CimInstance Win32_Process -Filter 'ProcessId=<PID>').CommandLine"
+```
+
+```bash
+npx cypress run --config baseUrl=http://localhost:3002   # ou force a porta certa
+```
+
+A porta **3001** pertence ao container de produção local (seções "Docker" abaixo), não ao
+`next dev`; os specs de e2e nunca devem apontar para ela, porque ela grava no Neon real.
+
+`cancelamento.cy.ts` semeia e remove agendamentos pela API real, então exige
+`DATABASE_URL` configurada no `.env`. Sem banco, a rota responde 500 e a suíte se marca
+como *pendente* (skip) em vez de reportar falha de produto; os demais specs não dependem
+de banco.
+
+
 ## Banco de dados (Neon)
 
 O projeto usa **Prisma 8** (contract-first). O contrato está em
@@ -128,59 +163,89 @@ docker compose up -d --build
 
 Sobe a aplicação em `http://localhost:3001` e um Postgres local.
 
-### Produção (Neon)
+### Local com Neon (sem Caddy)
 
-**Pré-requisito no servidor:** Docker Engine + plugin Compose v2
-(`docker compose version`). Em Ubuntu:
+Para rodar a aplicação em Docker usando o Neon remoto, sem proxy reverso e sem
+TLS local:
 
 ```bash
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker "$USER"   # relogue para valer
+# 1. crie/atualize o arquivo de ambiente
+cp .env.production.example .env.production.local
+
+# 2. preencha DATABASE_URL (pooled) e DIRECT_URL (direta)
+#    O .env.production.local é ignorado pelo Git.
+
+# 3. aplique/revalide as migrations pela conexão direta
+npx prisma db migrate --db "<DIRECT_URL>"
+npx prisma db verify  --db "<DIRECT_URL>" --strict
+
+# 4. build e subida
+docker compose -f docker-compose.prod.yml \
+  --env-file .env.production.local \
+  up -d --build
 ```
 
-Passo a passo:
+A aplicação fica disponível em `http://localhost:3001`. A porta pode ser
+alterada com `APP_PORT` no `.env.production.local`:
 
-```bash
-# 1. no servidor: crie o .env a partir do exemplo e preencha a DATABASE_URL
-cp .env.production.example .env
-chmod 600 .env
-
-# 2. a partir do repositório (na sua máquina): aplique as migrations
-npx prisma db migrate --db "<DIRECT_URL de produção>"
-npx prisma db verify  --db "<DIRECT_URL de produção>" --strict
-
-# 3. no servidor: build e subida
-docker compose -f docker-compose.prod.yml up -d --build
+```env
+APP_PORT=3002
 ```
 
-A aplicação escuta somente em `127.0.0.1:3001` (não é exposta à internet) e o
-container tem healthcheck em `GET /api/health` a cada 30s. Para checar:
+> O compose de desenvolvimento (`docker-compose.yml`) também usa a porta
+> `3001`. Não rode os dois ao mesmo tempo sem trocar a porta.
+
+`DATABASE_URL` deve ser a string **pooled** do Neon. A `DIRECT_URL` (sem
+`-pooler`) é usada apenas pela CLI, fora do container. A imagem `standalone` não
+inclui a CLI do Prisma, por isso as migrations são aplicadas antes do deploy.
+Não rode `npm run seed` em produção.
+
+**Segurança:** rotacione a senha do role do Neon se ela tiver sido exposta e
+atualize `DATABASE_URL`/`DIRECT_URL` no `.env.production.local`. O arquivo não
+deve ser versionado nem copiado para dentro da imagem.
+
+Para checar:
 
 ```bash
-curl -fsS http://127.0.0.1:3001/api/health          # processo/HTTP
-curl -fsS "http://127.0.0.1:3001/api/health?db=1"   # inclui o Neon
-docker compose -f docker-compose.prod.yml ps
+curl -fsS http://localhost:3001/api/health
+curl -fsS "http://localhost:3001/api/health?db=1"
+
+docker compose -f docker-compose.prod.yml \
+  --env-file .env.production.local ps
+
 docker inspect --format '{{.State.Health.Status}}' \
-  "$(docker compose -f docker-compose.prod.yml ps -q app)"
-docker compose -f docker-compose.prod.yml logs -f --tail=100
+  "$(docker compose -f docker-compose.prod.yml \
+    --env-file .env.production.local ps -q app)"
+
+docker compose -f docker-compose.prod.yml \
+  --env-file .env.production.local logs -f --tail=100
 ```
 
 > O healthcheck padrão não consulta o Neon de propósito: uma consulta a cada
 > 30s impediria a suspensão automática do banco. `?db=1` é para uso manual.
 
-`DATABASE_URL` deve ser a string **pooled** do Neon. A `DIRECT_URL` (sem
-`-pooler`) é usada apenas pela CLI, fora do container. A imagem `standalone` não
-inclui a CLI do Prisma, por isso as migrations são aplicadas antes do deploy.
+Para parar:
+
+```bash
+docker compose -f docker-compose.prod.yml \
+  --env-file .env.production.local down
+```
 
 **Rollback:** a imagem é tagueada com `${TAG:-latest}`. Para voltar a um commit
 anterior:
 
 ```bash
 git checkout <commit-anterior>
-TAG=<commit-anterior> docker compose -f docker-compose.prod.yml up -d --build
+TAG=<commit-anterior> docker compose -f docker-compose.prod.yml \
+  --env-file .env.production.local up -d --build
 ```
 
-A publicação em 80/443 e o TLS ficam com o proxy reverso (Caddy) da issue #27.
+> Rollback da imagem não desfaz migrations. Se houve mudança de schema, faça
+> backup/snapshot do Neon antes de aplicar e planeje o rollback do banco.
+
+Sem Caddy, não há HTTPS nem domínio configurado neste ambiente. Use o acesso
+local ou coloque a aplicação atrás de um proxy/WAF se for expô-la a outras
+máquinas.
 
 ## Scripts disponíveis
 
