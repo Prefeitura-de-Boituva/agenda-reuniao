@@ -19,14 +19,17 @@ import {
 } from "../validations";
 
 /**
- * Os testes passam `now` explicitamente e montam as datas com `new Date(y, m, d)`,
- * ou seja, em horário local. Assim não dependem do fuso da máquina nem do
- * `process.env.TZ`, que só valeria para o processo de teste e não para o servidor.
+ * Instante em que o relógio de Boituva marca `ano-mes-dia hora:minuto`.
+ *
+ * Boituva é UTC-3 o ano inteiro (sem horário de verão desde 2019), então somar
+ * 3h ao mesmo calendário lido em UTC produz o instante certo em qualquer
+ * máquina — os testes não dependem do fuso do processo, que é justamente o que
+ * `src/lib/fuso.ts` passou a ignorar.
  */
 const agora = (ano: number, mes: number, dia: number, hora = 0, minuto = 0) =>
-  new Date(ano, mes - 1, dia, hora, minuto, 0, 0);
+  new Date(Date.UTC(ano, mes - 1, dia, hora, minuto) + 3 * 3_600_000);
 
-/** "YYYY-MM-DD" no fuso local, espelhando `toISODate` de `lib/schedule`. */
+/** "YYYY-MM-DD" no fuso da agenda, espelhando `toISODate` de `lib/schedule`. */
 const dataISO = (ano: number, mes: number, dia: number) =>
   `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
 

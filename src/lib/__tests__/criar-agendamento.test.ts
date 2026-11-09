@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Fixa o fuso para a comparação de "horário passado" (RN12) não depender do
-// fuso da máquina que executa os testes (ex.: UTC-3 no Brasil).
-process.env.TZ = "UTC";
+// Os instantes abaixo são UTC, mas descrevem o relógio de Boituva (UTC-3, sem
+// horário de verão): `T10:00:00.000Z` é 07:00 na agenda. Nada depende do fuso
+// do processo — as regras leem `src/lib/fuso.ts`.
 
 /** Registro como a rota o grava no store. */
 type AgendamentoRecord = {
@@ -89,7 +89,7 @@ beforeEach(() => {
   // (ex.: início às 07:30) continuem exercitando `getSlotError`, e não a RN12.
   // Os testes da RN12 sobrescrevem o horário.
   vi.useFakeTimers();
-  vi.setSystemTime(new Date("2026-09-21T07:00:00.000Z"));
+  vi.setSystemTime(new Date("2026-09-21T10:00:00.000Z"));
 });
 
 afterEach(() => {
@@ -317,7 +317,7 @@ describe("POST /api/agendamentos – criação", () => {
   describe("400 – RN12: horário já passado no dia corrente", () => {
     it("rejeita início já decorrido hoje", async () => {
       vi.useFakeTimers();
-      vi.setSystemTime(new Date("2026-09-21T14:00:00.000Z"));
+      vi.setSystemTime(new Date("2026-09-21T17:00:00.000Z"));
 
       const { status, json } = await post({
         ...bodyValido,

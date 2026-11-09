@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Fixa o fuso em UTC para a comparação de "horário passado" não depender
-// do fuso da máquina que executa os testes (ex.: UTC-3 no Brasil).
-process.env.TZ = "UTC";
+// Os instantes abaixo são UTC, mas descrevem o relógio de Boituva (UTC-3, sem
+// horário de verão): `T15:00:00.000Z` é 12:00 na agenda. Nada depende do fuso
+// do processo — as regras leem `src/lib/fuso.ts`.
 
 // Busca do agendamento é simulada – a rota não precisa de um banco real.
 const agendamentoMock = vi.hoisted(() => ({
@@ -127,7 +127,7 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
 
   it("retorna 400 quando o horário de fim do agendamento já passou", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-20T12:00:00.000Z")); // fim 11:30 < 12:00
+    vi.setSystemTime(new Date("2026-09-20T15:00:00.000Z")); // fim 11:30 < 12:00
     agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
 
     const response = await DELETE(
@@ -144,7 +144,7 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
 
   it("retorna 400 quando a reserva é de um dia anterior (já encerrada)", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-21T09:00:00.000Z")); // dia seguinte
+    vi.setSystemTime(new Date("2026-09-21T12:00:00.000Z")); // dia seguinte
     agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
 
     const response = await DELETE(
@@ -161,7 +161,7 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
 
   it("retorna 200 quando a reunião está em andamento (antes do horaFim)", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-20T11:00:00.000Z")); // entre 10:30 e 11:30
+    vi.setSystemTime(new Date("2026-09-20T14:00:00.000Z")); // entre 10:30 e 11:30
     agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
 
     const response = await DELETE(
@@ -178,7 +178,7 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
 
   it("retorna 403 quando o departamento informado não confere", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-20T09:00:00.000Z"));
+    vi.setSystemTime(new Date("2026-09-20T12:00:00.000Z"));
     agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
 
     const response = await DELETE(
@@ -197,7 +197,7 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
 
   it("retorna 200 e remove o agendamento quando o departamento confere", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-20T09:00:00.000Z")); // 10:30 ainda no futuro
+    vi.setSystemTime(new Date("2026-09-20T12:00:00.000Z")); // 10:30 ainda no futuro
     agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
 
     // Departamentos equivalentes (case-insensitive e sem acentos) devem validar.
