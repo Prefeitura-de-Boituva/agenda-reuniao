@@ -14,6 +14,9 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
+# Liga o `output: "standalone"` no next.config.ts — a etapa de runtime copia
+# `.next/standalone`. Na Vercel a variável não existe e o build segue o padrão.
+ENV DOCKER_BUILD=1
 # Mantém o mesmo fuso no build e no runtime (componentes client também são
 # pré-renderizados no build).
 ENV TZ=America/Sao_Paulo

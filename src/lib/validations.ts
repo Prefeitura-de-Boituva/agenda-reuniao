@@ -1,4 +1,5 @@
 import { isDepartamentoValido, isSalaValida } from "./agendamentoOpcoes";
+import { relogioDaAgenda } from "./fuso";
 
 const PERMITTED_START_TIME = "08:00";
 const PERMITTED_END_TIME = "17:00";
@@ -41,18 +42,14 @@ export function isSlotValido(inicio: string, fim: string): boolean {
 }
 
 /**
- * Índice do dia (número inteiro) de uma data já ajustada para o horário local.
+ * Índice do dia de calendário (dias desde 1970-01-01) em curso no fuso da agenda.
  *
- * Usamos `Date.UTC` apenas como forma de obter um inteiro comparável a partir
- * dos getters locais (`getFullYear`/`getMonth`/`getDate`). Assim a comparação
- * entre dias é feita em "dias de calendário" e não depende de fuso horário nem
- * é afetada por horário de verão (a diferença entre duas datas pode ser de 23h
- * ou 25h, mas o índice do dia continua exato).
+ * Vem de `relogioDaAgenda`, não dos getters locais do processo: em servidor
+ * serverless (UTC) os getters locais adiantariam o dia três horas e, entre 21h e
+ * 24h de Boituva, fariam o dia corrente virar amanhã.
  */
-function indiceDiaLocal(data: Date): number {
-  return Math.floor(
-    Date.UTC(data.getFullYear(), data.getMonth(), data.getDate()) / 86_400_000
-  );
+function indiceDiaDaAgenda(agora: Date): number {
+  return relogioDaAgenda(agora).indiceDia;
 }
 
 /** Converte "YYYY-MM-DD" (data de calendário, sem fuso) em índice de dia. */
@@ -64,19 +61,20 @@ function indiceDiaDataISO(dateISO: string): number | null {
   );
 }
 
-/** true quando `dateISO` (YYYY-MM-DD) é o dia corrente no horário local. */
+/** true quando `dateISO` (YYYY-MM-DD) é o dia corrente no fuso da agenda. */
 export function ehHoje(dateISO: string, now: Date = new Date()): boolean {
   const dia = indiceDiaDataISO(dateISO);
-  return dia !== null && dia === indiceDiaLocal(now);
+  return dia !== null && dia === indiceDiaDaAgenda(now);
 }
 
 /**
  * true quando o horário de início do agendamento já decorreu — seja porque a
  * data já passou, seja porque, no dia corrente, o horário de início já passou.
  *
- * `data` é uma data de calendário (sem fuso), então a comparação de dias é feita
- * em horário local. Usar `toISOString()` (UTC) aqui misturava UTC com a hora local
- * e fazia a validação ser pulada entre 21h e 24h em fusos negativos como o UTC-3.
+ * `data` é uma data de calendário (sem fuso), então tanto o dia quanto a hora
+ * corrente vêm do relógio da agenda (`fuso.ts`), nunca do fuso do processo.
+ * Usar `toISOString()` (UTC) aqui misturava UTC com a hora local e fazia a
+ * validação ser pulada entre 21h e 24h em fusos negativos como o UTC-3.
  */
 export function jaDecorrido(
   dateISO: string,
@@ -86,11 +84,10 @@ export function jaDecorrido(
   const dia = indiceDiaDataISO(dateISO);
   if (dia === null) return false;
 
-  const hoje = indiceDiaLocal(now);
+  const hoje = indiceDiaDaAgenda(now);
   if (dia !== hoje) return dia < hoje; // data anterior já decorreu; futura ainda não
 
-  const [h, m] = time.split(":").map(Number);
-  return h * 60 + m < now.getHours() * 60 + now.getMinutes();
+  return timeToMinutes(time) < relogioDaAgenda(now).minutosDoDia;
 }
 
 /** Regra RN12: só bloqueia horário passado **no dia corrente**. */
@@ -108,7 +105,7 @@ export const MSG_DATA_PASSADA =
 
 /**
  * Regra RN16: true quando `dateISO` (YYYY-MM-DD) é um dia de calendário
- * **estritamente anterior** ao dia corrente no horário local.
+ * **estritamente anterior** ao dia corrente no fuso da agenda.
  *
  * É independente da RN12: uma data anterior é bloqueada mesmo que o horário
  * ainda não tenha "decorrido" no relógio. Data em formato inválido devolve
@@ -120,14 +117,20 @@ export function isDataPassada(
 ): boolean {
   const dia = indiceDiaDataISO(dateISO);
   if (dia === null) return false;
-  return dia < indiceDiaLocal(now);
+  return dia < indiceDiaDaAgenda(now);
 }
 
-export function jaPassou(data: string, horaFim: string): boolean {
-  const [year, month, day] = data.split("-").map(Number);
-  const [hour, minute] = horaFim.split(":").map(Number);
-  const fim = new Date(year, month - 1, day, hour, minute);
-  return fim.getTime() < Date.now();
+export function jaPassou(
+  data: string,
+  horaFim: string,
+  agora: Date = new Date()
+): boolean {
+  const dia = indiceDiaDataISO(data);
+  if (dia === null) return false;
+
+  const relogio = relogioDaAgenda(agora);
+  if (dia !== relogio.indiceDia) return dia < relogio.indiceDia;
+  return timeToMinutes(horaFim) < relogio.minutosDoDia;
 }
 
 export function getSlotError(inicio: string, fim: string): string | null {

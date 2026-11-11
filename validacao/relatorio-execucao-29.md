@@ -2,30 +2,45 @@
 
 Issue: [#29](https://github.com/Prefeitura-de-Boituva/agenda-reuniao/issues/29)
 Documentos ligados: [roteiro](testes-usuarios-reais.md) · [registro](registro-bugs-29.md)
-Status atual: roteiro pronto e validado contra o código; **URL ainda não existe**.
+Status atual: roteiro pronto e validado contra o código; **URL ainda não distribuída**.
 
 ---
 
 ## Fase 0 — Dar uma URL ao que hoje só roda local
 
-Nada disto está feito. Enquanto a Fase 0 não fechar, as fases 1 a 4 não começam.
+O passo a passo completo está em [url-da-aplicacao.md](url-da-aplicacao.md). Situação em
+2026-11-09: o container de produção **já está no ar** com o Neon (`http://192.168.66.102:3001`,
+health e `?db=1` ambos ok). O que falta não é subir nada — é publicar o commit certo e
+provar o alcance. Se a validação precisar acontecer fora da rede da Prefeitura, o
+repositório já está preparado para a Vercel (opção C do guia, com o README passo a passo);
+a conta, o plano e o domínio ficam com o coordenador.
 
-1. Escolher o alvo: rede interna da Prefeitura (`http://<IP>:3001`, sem HTTPS) ou o
-   Caddy + domínio oficial que a dependência #27 previa.
-2. Subir o compose de produção com `.env.production.local` (existe só no worktree da área
-   de trabalho, não neste).
-3. Provar que está de pé antes de convidar alguém:
+1. **Mesclar a correção do horário do slot livre** e republicar: a imagem em uso é
+   `8cd4e35`, anterior ao PR #57 e a `9e6998a`. Publicada assim, o C1 reproduz o bug.
+2. Criar o `.env.production.local` (ainda não existe em nenhum worktree — a
+   `DATABASE_URL` do container atual foi injetada na mão, então um novo `up` sem ela quebra).
+   Preencher também a `ACCESS_PASSWORD`: a aplicação agora tem portão de senha e, em
+   produção, sem essa variável o acesso fica **fechado**.
+3. Aplicar as migrations no destino antes do deploy (o container não roda migration).
+4. Provar que está de pé antes de convidar alguém:
 
    ```bash
-   curl -s <URL>/api/health            # liveness
+   curl -s <URL>/api/health            # liveness (público, não exige senha)
    curl -s "<URL>/api/health?db=1"     # acorda o Neon e confirma leitura/escrita
+
+   # portão de senha: 401 sem cookie, 200 com ele
+   curl -s -o /dev/null -w '%{http_code}\n' <URL>/api/agendamentos
+   curl -s -c /tmp/cookies.txt -X POST <URL>/api/acesso \
+     -H 'content-type: application/json' -d '{"senha":"<ACCESS_PASSWORD>"}'
+   curl -s -b /tmp/cookies.txt -o /dev/null -w '%{http_code}\n' <URL>/
    ```
 
-4. Colar a URL em `testes-usuarios-reais.md`, no bloco **Endereço da aplicação**.
-5. **Ensaio do coordenador**: executar sozinho os cenários C1 a C6 na URL real. Se alguma
+5. Colar a URL em `testes-usuarios-reais.md`, no bloco **Endereço da aplicação**, e
+   combinar a senha com o grupo por fora da agenda.
+6. **Ensaio do coordenador**: executar sozinho os cenários C1 a C6 na URL real. Se alguma
    mensagem esperada não aparecer exatamente como no roteiro, corrigir o roteiro — não o
    código — antes da sessão.
-6. Limpar as reservas `TESTE - ` criadas no ensaio.
+7. Limpar as reservas `TESTE - ` criadas no ensaio.
 
 **Portão de saída:** o coordenador rodou os 6 cenários e todos bateram.
 

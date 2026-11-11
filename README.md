@@ -16,7 +16,7 @@ cancelar reservas informando o departamento.
 
 ## Pré-requisitos
 
-- Node.js 20 ou superior (recomendado: 24)
+- Node.js 24 (fixado em `.nvmrc` e em `engines.node`)
 - npm (vem com o Node.js)
 - Uma connection string do Neon (ou um PostgreSQL local >= 15)
 
@@ -95,6 +95,19 @@ DIRECT_URL="postgresql://USUARIO:SENHA@ep-xxxx.regiao.aws.neon.tech/neondb?sslmo
 
 > O `.env` está no `.gitignore`. Nunca commite credenciais.
 
+Para desenvolver sem Neon, use a opção 1 do `.env.example` (Postgres local):
+
+```bash
+docker compose up -d postgres   # só o banco; o serviço app ocuparia a 3001
+npm run db:migrate              # aplica migrations/app/ no banco local
+```
+
+O `next dev` lê o `.env` apenas ao subir: depois de criá-lo ou alterá-lo,
+reinicie o servidor. Sem `DATABASE_URL`, a API responde 500
+("Erro interno ao criar agendamento.") e a grade ainda mostra os slots como
+livres, porque o GET falha em silêncio — o sintoma parece bug de tela, mas é
+banco ausente.
+
 ### 2. Verificar a conexão e o schema
 
 ```bash
@@ -163,6 +176,11 @@ docker compose up -d --build
 
 Sobe a aplicação em `http://localhost:3001` e um Postgres local.
 
+A imagem roda com `NODE_ENV=production`, então o portão de senha vale aqui
+também: defina `ACCESS_PASSWORD` no `.env` antes de subir, senão a aplicação
+fica fechada em `/entrar` (veja [Porta de entrada](#porta-de-entrada-senha-do-grupo)).
+Para desenvolver sem login, use `npm run dev` na 3000.
+
 ### Local com Neon (sem Caddy)
 
 Para rodar a aplicação em Docker usando o Neon remoto, sem proxy reverso e sem
@@ -172,7 +190,7 @@ TLS local:
 # 1. crie/atualize o arquivo de ambiente
 cp .env.production.example .env.production.local
 
-# 2. preencha DATABASE_URL (pooled) e DIRECT_URL (direta)
+# 2. preencha DATABASE_URL (pooled), DIRECT_URL (direta) e ACCESS_PASSWORD
 #    O .env.production.local é ignorado pelo Git.
 
 # 3. aplique/revalide as migrations pela conexão direta
@@ -199,6 +217,10 @@ APP_PORT=3002
 `-pooler`) é usada apenas pela CLI, fora do container. A imagem `standalone` não
 inclui a CLI do Prisma, por isso as migrations são aplicadas antes do deploy.
 Não rode `npm run seed` em produção.
+
+`ACCESS_PASSWORD` é obrigatória neste compose: sem ela o `docker compose up`
+falha com uma mensagem explícita, em vez de publicar uma agenda fechada. É a
+senha que os colaboradores digitam em `/entrar`.
 
 **Segurança:** rotacione a senha do role do Neon se ela tiver sido exposta e
 atualize `DATABASE_URL`/`DIRECT_URL` no `.env.production.local`. O arquivo não
@@ -246,6 +268,120 @@ TAG=<commit-anterior> docker compose -f docker-compose.prod.yml \
 Sem Caddy, não há HTTPS nem domínio configurado neste ambiente. Use o acesso
 local ou coloque a aplicação atrás de um proxy/WAF se for expô-la a outras
 máquinas.
+
+## Porta de entrada (senha do grupo)
+
+Não há login por usuário: a aplicação inteira fica atrás de **uma senha
+compartilhada**, definida na variável `ACCESS_PASSWORD`. Quem tem a senha pode
+criar e cancelar reservas — os registros continuam identificados apenas pelo
+nome/departamento digitados no formulário.
+
+| Situação | Comportamento |
+| --- | --- |
+| `npm run dev` sem `ACCESS_PASSWORD` | aberto (o Cypress não precisa de login) |
+| `npm run dev` com `ACCESS_PASSWORD` | exige a senha em `/entrar` |
+| Produção **sem** `ACCESS_PASSWORD` | **fechado**: páginas redirecionam para `/entrar` e o login responde `503` |
+| Produção com `ACCESS_PASSWORD` | exige a senha em `/entrar` |
+
+O portão é o `src/proxy.ts` (o antigo *middleware*, renomeado no Next 16) e roda
+no runtime Node.js. Rotas públicas: `/entrar`, `/api/acesso` e `/api/health` —
+esta última porque o healthcheck do Docker e da Vercel não pode exigir senha.
+Fora delas, `/api/*` responde `401` em JSON e as páginas redirecionam para
+`/entrar?prox=<caminho original>`.
+
+O cookie `agenda-acesso` é `httpOnly`, `sameSite=lax`, dura 7 dias e guarda um
+HMAC-SHA256 da senha, não a senha. Trocar `ACCESS_PASSWORD` invalida todos os
+cookies emitidos. Para sair, `DELETE /api/acesso` limpa o cookie.
+
+Limites conhecidos (aceitos para a validação com usuários reais da issue #29):
+uma senha só, sem trilha de quem fez cada ação; sem limite de tentativas de
+login; sem 2FA. Não é um controle de acesso por pessoa.
+
+## Deploy na Vercel
+
+O repositório já está preparado: `vercel.json` (framework `nextjs`,
+`npm ci --ignore-scripts`, região `iad1`), `.nvmrc` + `engines.node` em 24 e
+`output: "standalone"` ligado **apenas** quando `DOCKER_BUILD=1` (a imagem
+Docker). Na Vercel o build segue o padrão do adapter.
+
+> O fuso do servidor não importa mais: `src/lib/fuso.ts` fixa
+> `America/Sao_Paulo` em RN12/RN16 e na grade. A Vercel roda em UTC e ignora
+> `TZ`; sem isso, entre 21h e 24h de Boituva a regra de "horário passado" era
+> pulada. Não reintroduza `new Date()` com getters locais nas regras.
+
+### 1. Variáveis de ambiente
+
+No painel do projeto (*Settings → Environment Variables*), adicione em
+**Production e Preview** (preview sem senha vira uma URL pública da agenda):
+
+| Variável | Valor | Observação |
+| --- | --- | --- |
+| `DATABASE_URL` | string **pooled** do Neon (host `-pooler`) | mesma do `.env.production.local` |
+| `ACCESS_PASSWORD` | senha do grupo | obrigatória; sem ela o acesso fica fechado |
+
+`DIRECT_URL` **não** vai para a Vercel: ela só serve à CLI do Prisma, que roda a
+partir do repositório. Nunca commite credenciais nem use `npm run seed` no banco
+de produção.
+
+### 2. Banco
+
+As migrations não rodam no build da Vercel. Antes do primeiro deploy, a partir
+da sua máquina:
+
+```bash
+npm run db:verify                      # espera: marker e schema batem com o contrato
+# se houver migration pendente:
+npm run db:plan && npm run db:migrate  # usam DIRECT_URL (sem -pooler)
+```
+
+Use a região `iad1` (Washington) para as functions: o Neon está em `us-east-1`.
+A região padrão brasileira (`gru1`) acrescenta uma ida e volta ao banco em cada
+consulta.
+
+### 3. Publicar
+
+```bash
+npm i -g vercel
+vercel login          # a conta e a vinculação ficam por sua conta
+vercel link           # cria/vincula o projeto (gera .vercel/, já no .gitignore)
+vercel --prod         # publica e devolve a URL
+```
+
+Ou pelo painel: *Add New → Project → Import* deste repositório, branch
+`develop`, e *Deploy*. O nome `agenda-reuniao` só fica em
+`agenda-reuniao.vercel.app` se estiver livre; caso contrário a Vercel sugere
+`agenda-reuniao-<escopo>.vercel.app`.
+
+Para um domínio institucional, adicione-o em *Settings → Domains* e siga os
+registros DNS indicados — `*.vercel.app` não é um endereço da Prefeitura.
+
+### 4. Conferir depois do deploy
+
+```bash
+curl -fsS https://<sua-url>/api/health
+curl -fsS "https://<sua-url>/api/health?db=1"   # database: ok
+
+curl -i https://<sua-url>/                      # 307 para /entrar
+curl -i https://<sua-url>/api/agendamentos      # 401
+curl -i -X POST https://<sua-url>/api/acesso \
+  -H 'content-type: application/json' \
+  -d '{"senha":"<ACCESS_PASSWORD>"}'            # 200 + Set-Cookie: agenda-acesso
+```
+
+Com o cookie do último comando, repita o `GET /api/agendamentos`: deve responder
+`200`. Só então distribua a URL para os colaboradores (issue #29).
+
+### 5. Limites do plano e da hospedagem
+
+- **Hobby não é permitido para uso de produção** nos termos da Vercel. Para a
+  Prefeitura usar de forma contínua, o plano precisa ser Pro (ou outra
+  hospedagem). Hobby serve apenas para uma validação curta e interna.
+- Cada push na branch vinculada gera um deploy novo; cada PR gera uma URL de
+  preview. Todas herdam as env vars do ambiente correspondente.
+- A função serverless é stateless: nada de gravar em disco. O estado vive no
+  Neon e no `localStorage` do navegador.
+- Sem `ACCESS_PASSWORD` o portão fecha, não abre — um deploy sem a env var não
+  expõe a agenda, mas também não funciona.
 
 ## Scripts disponíveis
 

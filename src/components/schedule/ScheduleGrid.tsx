@@ -539,6 +539,7 @@ export function ScheduleGrid({
 
           salaInicial={selectedRoom.name}
           dataInicial={createTarget.date}
+          horarioInicial={createTarget.startTime}
           externalError={createError}
         />
       )}

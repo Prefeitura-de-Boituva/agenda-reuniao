@@ -1,0 +1,55 @@
+# O que a CLI da Vercel NÃO deve subir no bundle.
+# Espelha o `.dockerignore`: sem este arquivo, uma publicação local (projeto não
+# vinculado ao GitHub) arrastaria `.env`, o `.git` inteiro e as suítes de teste.
+
+# dependências e artefatos de build
+node_modules
+.pnp
+.pnp.*
+.next
+out
+build
+dist
+coverage
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# credenciais locais — as env vars vêm do painel da Vercel
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# git
+.git
+.gitignore
+.gitattributes
+
+# testes e ferramentas que não rodam na function
+cypress
+cypress.config.ts
+cypress/screenshots
+vitest.config.ts
+
+# caminho de deploy Docker (a Vercel usa o adapter do Next)
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.prod.yml
+
+# documentação e scripts avulsos
+docs
+validacao
+*.md
+!README.md
+lighthouse-report.json
+test-post.cjs
+test-post.js
+test-create.bat
+
+# skills instaladas pelo postinstall (o --ignore-scripts do vercel.json não as gera lá)
+.agents
+.claude
+.cursor
+.devin

@@ -1,23 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Fixa o fuso em UTC para a comparação de "horário passado" não depender
-// do fuso da máquina que executa os testes (ex.: UTC-3 no Brasil).
-process.env.TZ = "UTC";
+// O instante abaixo é UTC, mas descreve o relógio de Boituva (UTC-3, sem
+// horário de verão): `T13:00:00.000Z` é 10:00 na agenda. Nada depende do fuso
+// do processo — as regras leem `src/lib/fuso.ts`.
 
-// O vitest não resolve o alias "@/" deste projeto; mockamos o módulo usado
-// pela rota para que a importação funcione sem alterar a configuração.
-// `getErroCamposObrigatorios` também entra no mock porque a rota agora o
-// importa; devolvendo `null` o teste segue isolado na regra RN12.
-vi.mock("@/lib/validations", () => ({
-  getErroCamposObrigatorios: () => null,
-  getSlotError: () => null,
-  isSlotValido: () => true,
-  // A rota também importa a RN16; devolver `false` mantém este teste isolado
-  // na regra RN12.
-  isDataPassada: () => false,
-  MSG_DATA_PASSADA:
-    "Erro 400: Não é possível agendar para uma data passada.",
-}));
+// Mock parcial: `isPastToday` é a própria regra sob teste e vem do módulo real;
+// as demais validações ficam permissivas para isolar a RN12.
+vi.mock(import("@/lib/validations"), async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    getErroCamposObrigatorios: () => null,
+    getSlotError: () => null,
+    isSlotValido: () => true,
+    // A rota também importa a RN16; devolver `false` mantém este teste isolado
+    // na regra RN12.
+    isDataPassada: () => false,
+  };
+});
 
 // Mock Prisma client – same alias used by the app
 vi.mock("@/prisma/db", () => ({
@@ -46,7 +46,7 @@ function buildRequest(body: object): Request {
 
 describe("RN12 – bloqueio de agendamento em horário passado", () => {
   const today = "2026-09-20";
-  const nowISO = `${today}T10:00:00.000Z`;
+  const nowISO = `${today}T13:00:00.000Z`;
 
   beforeEach(() => {
     vi.useFakeTimers();

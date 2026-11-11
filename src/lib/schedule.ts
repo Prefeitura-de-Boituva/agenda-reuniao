@@ -1,3 +1,9 @@
+import {
+  FUSO_AGENDA,
+  meioDiaDaAgenda,
+  meioDiaPorIndice,
+  relogioDaAgenda,
+} from "./fuso";
 import type { Booking, Room, RoomSchedule, SlotStatus, TimeSlot } from "@/types/schedule";
 
 export const OPENING_HOUR = 8;
@@ -32,13 +38,18 @@ export function generateTimeSlots(): Array<{ startTime: string; endTime: string 
   return slots;
 }
 
+/**
+ * "YYYY-MM-DD" → um `Date` ancorado no meio-dia da agenda. Os helpers abaixo só
+ * leem calendário através de `relogioDaAgenda`, então a âncora não importa para
+ * eles — mas importa para qualquer `Date` que saia daqui para `Intl` ou aritmética.
+ */
 export function parseDate(date: string): Date {
-  const [year, month, day] = date.split("-").map(Number);
-  return new Date(year, month - 1, day);
+  return meioDiaDaAgenda(date);
 }
 
 export function formatDate(date: Date): string {
   return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: FUSO_AGENDA,
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -48,6 +59,7 @@ export function formatDate(date: Date): string {
 
 export function formatDateShort(date: Date): string {
   return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: FUSO_AGENDA,
     weekday: "short",
     day: "2-digit",
     month: "2-digit",
@@ -55,27 +67,18 @@ export function formatDateShort(date: Date): string {
 }
 
 export function toISODate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return relogioDaAgenda(date).iso;
 }
 
 export function shiftDate(date: Date, days: number): Date {
-  const shifted = new Date(date);
-  shifted.setDate(shifted.getDate() + days);
-  return shifted;
+  return meioDiaPorIndice(relogioDaAgenda(date).indiceDia + days);
 }
 
+/** Segunda-feira da semana da agenda; domingo pertence à semana seguinte. */
 export function getWeekStart(date: Date): Date {
-  const start = new Date(date);
-  if (start.getDay() === 0) {
-    start.setDate(start.getDate() + 1);
-    return start;
-  }
-  const daysSinceMonday = start.getDay() - 1;
-  start.setDate(start.getDate() - daysSinceMonday);
-  return start;
+  const { indiceDia, diaDaSemana } = relogioDaAgenda(date);
+  const diasDesdeSegunda = diaDaSemana === 0 ? -1 : diaDaSemana - 1;
+  return meioDiaPorIndice(indiceDia - diasDesdeSegunda);
 }
 
 export function getWeekDates(startDate: Date): Date[] {
