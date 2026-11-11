@@ -33,7 +33,8 @@ Dois bloqueios reais antes de convidar alguém:
 
 ## O que mudou no repositório depois deste levantamento
 
-Quatro mudanças na branch `feat/url-publica-vercel` (a partir do `develop` `b27579e`):
+Quatro mudanças, nascidas na branch `feat/url-publica-vercel` (a partir do `develop`
+`b27579e`) e agora mescladas em `main` (`c56df25`), que já continha os PRs #58 e #59:
 
 1. **Fuso explícito.** `src/lib/fuso.ts` fixa `America/Sao_Paulo` nas regras RN12/RN16
    e na grade. Antes elas dependiam do fuso do processo: num host em UTC (caso da
@@ -49,20 +50,55 @@ Quatro mudanças na branch `feat/url-publica-vercel` (a partir do `develop` `b27
    `output: "standalone"` ligado só no build da imagem Docker (`DOCKER_BUILD=1`) e
    `.vercelignore` para a CLI não subir `.env`, `.git` nem as suítes de teste.
    O passo a passo de publicação está no README, seção **Deploy na Vercel**.
-4. **Correção do cenário C1 dentro da branch.** `origin/fix/horario-do-slot-e-criacao-local`
+4. **Correção do cenário C1.** `origin/fix/horario-do-slot-e-criacao-local`
    foi mesclada localmente (`bdac0db`, sem conflito): o formulário agora herda o horário
-   do slot clicado. A branch está publicável — não é mais preciso esperar o PR dela.
+   do slot clicado. Está em `main` — não é mais preciso esperar o PR dela.
 
-Estado provado na branch mesclada: 213 testes unitários nos três fusos, `tsc --noEmit`
-limpo, ESLint sem erro nos arquivos tocados, `npm run build` registrando
-`ƒ Proxy (Middleware)`, `DOCKER_BUILD=1` gerando `.next/standalone/server.js` e
-**38 testes e2e verdes** contra o `npm run dev` da 3000 (incluindo `slot-horario.cy.ts`).
-O portão foi testado ao vivo em `next start`: 307/401/`200 + Set-Cookie` com senha e
-307/503/401 sem senha (fail-closed).
+Estado provado em `main` (`c56df25`, merge de `ca3131a` + `1761b02`): 212 testes
+unitários nos três fusos, `tsc --noEmit` limpo, ESLint sem erro nos arquivos tocados
+(2 avisos pré-existentes do upstream em `ScheduleGrid.tsx`), `npm run build`
+registrando `ƒ Proxy (Middleware)` e **sem** `.next/standalone`, `DOCKER_BUILD=1`
+gerando `.next/standalone/server.js`, e **38 testes e2e verdes** contra o
+`npm run dev` na 3030 — incluindo `slot-horario.cy.ts` e `cancelamento.cy.ts`, que
+usa o Postgres local. O portão foi testado ao vivo em `next start` na 3031:
+307 → `/entrar?prox=%2F`, `prox` preservando `?date=…&room=…`, API 401 sem cookie,
+`/api/health?db=1` com `database: ok`, senha errada 401, senha certa 200 + cookie
+`agenda-acesso`, e 200 autenticado.
 
-> Nada disto foi publicado ainda: o container no ar continua o `8cd4e35`, sem portão e
-> sem o fuso explícito. Os bloqueios de alcance (firewall/reserva de DHCP) continuam
-> valendo para a opção A; para a opção C falta só a publicação, abaixo do seu login.
+Um teste a menos que os 213 anteriores: o upstream removeu `getNextWeekday` e
+`getPreviousWeekday` como código morto, e o único consumidor era o teste de fuso que
+as exercitava. No merge a remoção prevaleceu.
+
+> Nada disto está publicado ainda. O container no ar continua o `8cd4e35`, sem portão
+> e sem fuso explícito, e a URL pública não existe. Os bloqueios de alcance
+> (firewall/reserva de DHCP) continuam valendo para a opção A; para a opção C falta
+> só a publicação, abaixo do seu login.
+
+## O deploy da Vercel que falhou (2026-11-11)
+
+`dpl_BibRZjVCcYR63hjcYs6iCvBPL1FQ` falhou. O que se sabe, com evidência:
+
+- **Não saiu desta máquina.** A CLI não tem credenciais aqui (`npx vercel inspect`
+  responde `No existing credentials found`), não há `.vercel/` em nenhum dos três
+  checkouts, e o GitHub não registra deployment nem comentário de bot no commit. O
+  upstream ganhou `neon.ts` (`@neon/config/v1`, commit `495628d`), o que aponta para
+  a integração Neon↔Vercel como origem do projeto.
+- **O código construído não era o preparado.** `origin/main` (`ca3131a`, PR #59) e
+  `origin/develop` (`f081985`, PR #58) não continham `vercel.json`, `.nvmrc`,
+  `.vercelignore`, `src/proxy.ts` nem `src/lib/fuso.ts`. Mesmo verde, aquele build
+  publicaria a agenda sem senha e com RN12/RN16 dependentes do fuso do processo.
+- **Não é falha de install.** `npm ci --dry-run --ignore-scripts` sobre `origin/main`
+  resolveu 917 pacotes com o lockfile em sincronia.
+- **Falta de `DATABASE_URL` não derruba o build** — mas o `src/prisma/db.ts` do
+  upstream cai num mock em memória nesse caso: um deploy "verde" sem env serviria
+  agenda vazia, perdendo tudo a cada cold start. As variáveis são obrigatórias antes
+  do primeiro tráfego.
+
+O log continua pendente: sem login na CLI não há como ler
+`npx vercel inspect dpl_BibRZjVCcYR63hjcYs6iCvBPL1FQ --logs`. A correção estrutural
+já está feita — `main` local agora carrega o preparo (`c56df25`), então a próxima
+publicação deve sair deste diretório, com `vercel --prod`, e não do remoto
+despreparado.
 
 ---
 
@@ -71,8 +107,9 @@ O portão foi testado ao vivo em `next start`: 307/401/`200 + Set-Cookie` com se
 ```bash
 cd <repo>                                          # worktree que será publicado
 git fetch origin --prune
-git checkout develop && git pull --ff-only         # ou a branch feat/url-publica-vercel,
-                                                   # que já tem o PR #57 e a correção do slot
+git checkout main                                  # main local c56df25: PR #57, fuso, portão
+                                                   # e correção do slot. Sem pull --ff-only:
+                                                   # este merge ainda não foi enviado.
 
 # 1. arquivo de env do deploy (NUNCA versionar: .gitignore já cobre ".env*")
 cp .env.production.example .env.production.local
@@ -171,12 +208,21 @@ para as functions da Vercel. O passo a passo completo está no README, seção
 
 ```bash
 npm i -g vercel
-vercel login      # conta e vinculação são suas
+vercel login                              # conta e vinculação são suas
 vercel link
-vercel --prod
+vercel env add DATABASE_URL production    # string POOLED do Neon (host -pooler)
+vercel env add DATABASE_URL preview
+vercel env add ACCESS_PASSWORD production
+vercel env add ACCESS_PASSWORD preview
+vercel --prod                             # publica ESTE diretório e devolve a URL
 ```
 
-Variáveis no painel, em **Production e Preview** (preview sem senha vira URL pública):
+`vercel --prod` pela CLI sobe os arquivos locais, não o GitHub: não depende de push
+nem do branch remoto. É o caminho certo agora que `main` local (`c56df25`) carrega o
+preparo — importar o repositório pelo painel construiria o remoto, que ainda não tem
+portão nem fuso explícito enquanto este merge não for enviado.
+
+Variáveis em **Production e Preview** (preview sem senha vira URL pública da agenda):
 `DATABASE_URL` (pooled) e `ACCESS_PASSWORD`. `DIRECT_URL` não vai para a Vercel — as
 migrations continuam sendo aplicadas da sua máquina, como no Passo 0.
 
@@ -235,12 +281,12 @@ local e serve para desenvolvimento; os colaboradores testam o container de produ
 
 Cada bloco abaixo é autossuficiente; rode na ordem e pare no primeiro que falhar.
 
-**1. Publicar o código corrigido** (`feat/url-publica-vercel` já traz o PR #57, o fuso,
-o portão de senha e a correção do slot; para a opção A pela 3001, o `develop` ainda
-precisa do PR da `fix/horario-do-slot-e-criacao-local`):
+**1. Publicar o código corrigido** (`main` local `c56df25` já traz o PR #57, o fuso, o
+portão de senha, a correção do slot e os PRs #58/#59. O remoto **não** tem o preparo:
+não importe o repositório pelo painel da Vercel antes de enviar este merge):
 
 ```bash
-git checkout develop && git pull --ff-only && git rev-parse --short HEAD
+git checkout main && git rev-parse --short HEAD    # esperado: c56df25
 ```
 
 **2. Criar o env do deploy** (uma vez por máquina; o arquivo não está no git):

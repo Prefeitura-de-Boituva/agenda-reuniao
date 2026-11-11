@@ -342,15 +342,18 @@ consulta.
 
 ```bash
 npm i -g vercel
-vercel login          # a conta e a vinculação ficam por sua conta
-vercel link           # cria/vincula o projeto (gera .vercel/, já no .gitignore)
-vercel --prod         # publica e devolve a URL
+vercel login                              # a conta e a vinculação ficam por sua conta
+vercel link                               # cria/vincula o projeto (gera .vercel/, já no .gitignore)
+vercel env add DATABASE_URL production    # string pooled do Neon; repita para preview
+vercel env add ACCESS_PASSWORD production # idem para preview
+vercel --prod                             # publica e devolve a URL
 ```
 
-Ou pelo painel: *Add New → Project → Import* deste repositório, branch
-`develop`, e *Deploy*. O nome `agenda-reuniao` só fica em
-`agenda-reuniao.vercel.app` se estiver livre; caso contrário a Vercel sugere
-`agenda-reuniao-<escopo>.vercel.app`.
+`vercel --prod` sobe **o diretório local**, não o GitHub — não depende de push. Já o
+painel (*Add New → Project → Import*) constrói o branch remoto: portão, fuso explícito
+e `vercel.json` só chegam lá depois que o merge que os contém for enviado. O nome
+`agenda-reuniao` só fica em `agenda-reuniao.vercel.app` se estiver livre; caso
+contrário a Vercel sugere `agenda-reuniao-<escopo>.vercel.app`.
 
 Para um domínio institucional, adicione-o em *Settings → Domains* e siga os
 registros DNS indicados — `*.vercel.app` não é um endereço da Prefeitura.
@@ -382,6 +385,9 @@ Com o cookie do último comando, repita o `GET /api/agendamentos`: deve responde
   Neon e no `localStorage` do navegador.
 - Sem `ACCESS_PASSWORD` o portão fecha, não abre — um deploy sem a env var não
   expõe a agenda, mas também não funciona.
+- Sem `DATABASE_URL` o `src/prisma/db.ts` cai num **mock em memória**: o build passa
+  e a UI responde, mas nada persiste e tudo se perde a cada cold start. Confirme
+  `database: ok` no `?db=1` antes de distribuir a URL.
 
 ## Scripts disponíveis
 
