@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // O instante abaixo é UTC, mas descreve o relógio de Boituva (UTC-3, sem
 // horário de verão): `T13:00:00.000Z` é 10:00 na agenda. Nada depende do fuso
