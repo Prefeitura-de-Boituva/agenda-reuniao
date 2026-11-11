@@ -100,6 +100,30 @@ já está feita — `main` local agora carrega o preparo (`c56df25`), então a p
 publicação deve sair deste diretório, com `vercel --prod`, e não do remoto
 despreparado.
 
+### Segunda falha, já com o preparo no remoto (2026-11-11)
+
+`main` foi enviado (`ca3131a..ce785e5`, fast-forward, sem force) e a integração
+GitHub↔Vercel disparou sozinha um deploy novo — o que confirma que o projeto
+`prefeitura-boituva/agenda-reuniao` está ligado ao GitHub, e não à CLI local.
+**Ele também falhou**: `dpl_CKWKTga2L6mYqkpG6TEJm66U7CUm`. Logo a causa não era a
+falta do preparo.
+
+Descartado com prova local, na árvore `ce785e5`:
+
+| Hipótese | Resultado |
+|---|---|
+| Lockfile fora de sincronia | `npm ci --dry-run --ignore-scripts`: 917 pacotes, ok |
+| Falta de env no build | build com `.env` afastado: rc=0, `ƒ Proxy (Middleware)` |
+| `db.ts` estourando sem `DATABASE_URL` | cai no mock em memória, não lança |
+| Tipos / lint | `tsc --noEmit` limpo; ESLint 0 erros nos arquivos tocados |
+| Node | `.nvmrc`/`engines` em 24; local v24.22.1 builda |
+
+Sobram causas específicas da plataforma (versão do adapter para o Next 16.3.4,
+etapa de install/build da Vercel, limite de memória ou configuração do projeto).
+**O log é o único caminho**: `npx vercel login` e depois
+`npx vercel inspect dpl_CKWKTga2L6mYqkpG6TEJm66U7CUm --logs`, ou as últimas linhas
+do painel em `vercel.com/prefeitura-boituva/agenda-reuniao/CKWKTga2L6mYqkpG6TEJm66U7CUm`.
+
 ---
 
 ## Passo 0 — comum a qualquer opção (15 min)
