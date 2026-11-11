@@ -1,0 +1,62 @@
+import type { Booking } from "@/types/schedule";
+import { ROOMS } from "@/lib/rooms";
+
+interface AgendamentoApi {
+  id: string;
+  nome: string;
+  departamento: string;
+  sala: string;
+  data: string;
+  horaInicio: string;
+  horaFim: string;
+}
+
+/**
+ * Busca os agendamentos reais da sala (Neon, via `GET /api/agendamentos`) para
+ * cada data e devolve o resultado agrupado por data.
+ *
+ * A API filtra pelo nome da sala ("Sala Azul"), enquanto a UI usa o id/slug
+ * ("sala-azul"); aqui fazemos a tradução dos dois lados.
+ */
+export async function fetchBookings(
+  roomId: string,
+  dates: string[]
+): Promise<Record<string, Booking[]>> {
+  const room = ROOMS.find((r) => r.id === roomId);
+  if (!room) return {};
+
+  const result: Record<string, Booking[]> = {};
+  await Promise.all(
+    dates.map(async (date) => {
+      result[date] = await buscarPorData(room.name, date);
+    })
+  );
+  return result;
+}
+
+async function buscarPorData(sala: string, data: string): Promise<Booking[]> {
+  const url = `/api/agendamentos?sala=${encodeURIComponent(sala)}&data=${encodeURIComponent(data)}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+
+    const agendamentos = (await res.json()) as AgendamentoApi[];
+    return agendamentos
+      .map((a) => ({
+        id: a.id,
+        roomId: roomIdPorNome(a.sala),
+        date: a.data,
+        name: a.nome,
+        department: a.departamento,
+        startTime: a.horaInicio,
+        endTime: a.horaFim,
+      }))
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  } catch {
+    return [];
+  }
+}
+
+function roomIdPorNome(sala: string): string {
+  return ROOMS.find((r) => r.name === sala)?.id ?? sala;
+}

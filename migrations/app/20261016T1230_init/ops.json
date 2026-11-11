@@ -1,0 +1,194 @@
+[
+  {
+    "id": "dropCheckConstraint.agendamento.agendamento_sala_check_d53f5364",
+    "label": "Drop check constraint \"agendamento_sala_check_d53f5364\" on \"agendamento\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "checkConstraint",
+        "name": "agendamento_sala_check_d53f5364",
+        "table": "agendamento"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"agendamento_sala_check_d53f5364\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agendamento_sala_check_d53f5364",
+          "public",
+          "\"public\".\"agendamento\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop check constraint \"agendamento_sala_check_d53f5364\"",
+        "sql": "ALTER TABLE \"public\".\"agendamento\" DROP CONSTRAINT \"agendamento_sala_check_d53f5364\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"agendamento_sala_check_d53f5364\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agendamento_sala_check_d53f5364",
+          "public",
+          "\"public\".\"agendamento\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "data_migration.renomear-sala-1-para-azul",
+    "label": "Data transform: renomear-sala-1-para-azul",
+    "operationClass": "data",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [
+      {
+        "description": "Check renomear-sala-1-para-azul has work to do",
+        "sql": "SELECT EXISTS (SELECT \"id\" AS \"id\" FROM \"public\".\"agendamento\" WHERE \"sala\" = $1 LIMIT 1) AS ok",
+        "params": [
+          "Sala 1"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "Run renomear-sala-1-para-azul",
+        "sql": "UPDATE \"public\".\"agendamento\" SET \"sala\" = $1 WHERE \"sala\" = $2",
+        "params": [
+          "Sala Azul",
+          "Sala 1"
+        ]
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify renomear-sala-1-para-azul resolved all violations",
+        "sql": "SELECT NOT EXISTS (SELECT \"id\" AS \"id\" FROM \"public\".\"agendamento\" WHERE \"sala\" = $1 LIMIT 1) AS ok",
+        "params": [
+          "Sala 1"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "data_migration.renomear-sala-2-para-verde",
+    "label": "Data transform: renomear-sala-2-para-verde",
+    "operationClass": "data",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [
+      {
+        "description": "Check renomear-sala-2-para-verde has work to do",
+        "sql": "SELECT EXISTS (SELECT \"id\" AS \"id\" FROM \"public\".\"agendamento\" WHERE \"sala\" = $1 LIMIT 1) AS ok",
+        "params": [
+          "Sala 2"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "Run renomear-sala-2-para-verde",
+        "sql": "UPDATE \"public\".\"agendamento\" SET \"sala\" = $1 WHERE \"sala\" = $2",
+        "params": [
+          "Sala Verde",
+          "Sala 2"
+        ]
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify renomear-sala-2-para-verde resolved all violations",
+        "sql": "SELECT NOT EXISTS (SELECT \"id\" AS \"id\" FROM \"public\".\"agendamento\" WHERE \"sala\" = $1 LIMIT 1) AS ok",
+        "params": [
+          "Sala 2"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "data_migration.renomear-sala-3-para-amarela",
+    "label": "Data transform: renomear-sala-3-para-amarela",
+    "operationClass": "data",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [
+      {
+        "description": "Check renomear-sala-3-para-amarela has work to do",
+        "sql": "SELECT EXISTS (SELECT \"id\" AS \"id\" FROM \"public\".\"agendamento\" WHERE \"sala\" = $1 LIMIT 1) AS ok",
+        "params": [
+          "Sala 3"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "Run renomear-sala-3-para-amarela",
+        "sql": "UPDATE \"public\".\"agendamento\" SET \"sala\" = $1 WHERE \"sala\" = $2",
+        "params": [
+          "Sala Amarela",
+          "Sala 3"
+        ]
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify renomear-sala-3-para-amarela resolved all violations",
+        "sql": "SELECT NOT EXISTS (SELECT \"id\" AS \"id\" FROM \"public\".\"agendamento\" WHERE \"sala\" = $1 LIMIT 1) AS ok",
+        "params": [
+          "Sala 3"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "checkConstraint.agendamento.agendamento_sala_check_ea25e272",
+    "label": "Add check constraint \"agendamento_sala_check_ea25e272\" on \"agendamento\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "checkConstraint",
+        "name": "agendamento_sala_check_ea25e272",
+        "table": "agendamento"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"agendamento_sala_check_ea25e272\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agendamento_sala_check_ea25e272",
+          "public",
+          "\"public\".\"agendamento\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add check constraint \"agendamento_sala_check_ea25e272\"",
+        "sql": "ALTER TABLE \"public\".\"agendamento\" ADD CONSTRAINT \"agendamento_sala_check_ea25e272\" CHECK (\"sala\" IN ('Sala Azul', 'Sala Verde', 'Sala Amarela'))"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"agendamento_sala_check_ea25e272\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agendamento_sala_check_ea25e272",
+          "public",
+          "\"public\".\"agendamento\""
+        ]
+      }
+    ]
+  }
+]

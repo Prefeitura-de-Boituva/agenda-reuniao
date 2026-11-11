@@ -1,0 +1,165 @@
+import {
+  type Departamento,
+  type Sala,
+} from "@/lib/agendamentoOpcoes";
+import { temConflito } from "@/lib/conflict";
+import {
+  getErroCamposObrigatorios,
+  getSlotError,
+  isDataPassada,
+  isSlotValido,
+  MSG_DATA_PASSADA,
+} from "@/lib/validations";
+import { db } from "@/prisma/db";
+import {
+  MSG_CONFLITO_HORARIO,
+  categorizarErroDb,
+  registrarErroDb,
+} from "@/prisma/errors";
+import type { Models } from "@/prisma/contract.d";
+
+/**
+ * `horaInicio`/`horaFim` são `varchar(5)` no contrato, o que o Prisma 8 expõe
+ * como o tipo marcado `Varchar<5>`. A validação de formato (HH:MM e grade de
+ * 30 min) já aconteceu antes; aqui só alinhamos o tipo com o contrato.
+ */
+const hora = (valor: string): Models.public_Agendamento["horaInicio"] =>
+  valor as Models.public_Agendamento["horaInicio"];
+
+export async function POST(request: Request) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Corpo da requisição inválido." }, { status: 400 });
+  }
+
+  const { nome, departamento, sala, data, horaInicio, horaFim } = (body ?? {}) as Record<string, unknown>;
+
+  if (
+    typeof nome !== "string" ||
+    typeof departamento !== "string" ||
+    typeof sala !== "string" ||
+    typeof data !== "string" ||
+    typeof horaInicio !== "string" ||
+    typeof horaFim !== "string"
+  ) {
+    return Response.json({ error: "Todos os campos são obrigatórios." }, { status: 400 });
+  }
+
+  // Complemento da checagem de tipos acima: rejeita string vazia ou composta
+  // apenas por espaços, `data` fora de YYYY-MM-DD, horário fora de HH:MM e
+  // horário fora da grade de 30 minutos da agenda. Roda depois do bloco acima
+  // para que a mensagem "Todos os campos são obrigatórios." continue sendo a
+  // resposta para campo ausente ou de tipo errado.
+  const erroCampos = getErroCamposObrigatorios(body);
+  if (erroCampos) {
+    return Response.json({ error: erroCampos }, { status: 400 });
+  }
+
+  // `getErroCamposObrigatorios` já garantiu que os valores pertencem aos enums
+  // do contrato (caso contrário teria retornado 400 acima). Os casts abaixo
+  // apenas alinham o tipo `string` com as uniões literais que o Prisma 8 exige.
+  const salaValida = sala as Sala;
+  const departamentoValido = departamento as Departamento;
+
+  // RN16: bloqueia qualquer data de calendário anterior ao dia corrente.
+  // Roda depois da validação de formato, então `data` já é YYYY-MM-DD válida.
+  // A RN12 (abaixo) continua tratando apenas o horário passado no mesmo dia.
+  if (isDataPassada(data)) {
+    return Response.json({ error: MSG_DATA_PASSADA }, { status: 400 });
+  }
+
+  // Bloquear agendamentos em horário já passado no mesmo dia.
+  // `data` é uma data de calendário (sem fuso), então o dia corrente precisa ser
+  // montado com os getters locais. Antes usávamos `toISOString()` (UTC) e
+  // comparávamos com `getHours()` (local): em fusos negativos como o UTC-3, entre
+  // 21h e 24h o "hoje" virava o dia seguinte e esta validação era pulada.
+  const isPast = (dateStr: string, timeStr: string): boolean => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    if (dateStr !== today) return false;
+    const [h, m] = timeStr.split(":").map(Number);
+    const minutesNow = now.getHours() * 60 + now.getMinutes();
+    return h * 60 + m < minutesNow;
+  };
+
+  if (isPast(data, horaInicio)) {
+    return Response.json({ error: "Horário já passou no dia atual." }, { status: 400 });
+  }
+
+  const slotError = isSlotValido(horaInicio, horaFim)
+    ? null
+    : getSlotError(horaInicio, horaFim);
+  if (slotError) {
+    return Response.json({ error: slotError }, { status: 400 });
+  }
+
+  const novoAgendamento = {
+    id: crypto.randomUUID(),
+    nome,
+    departamento: departamentoValido,
+    sala: salaValida,
+    data,
+    horaInicio: hora(horaInicio),
+    horaFim: hora(horaFim),
+    criadoEm: new Date().toISOString(),
+  };
+
+  // Checagem de sobreposição e gravação no mesmo `try`: falha de
+  // infraestrutura (banco fora do ar, `DATABASE_URL` ausente) não pode escapar
+  // como exceção não tratada nem no `temConflito`, nem no `create`.
+  try {
+    const conflito = await temConflito(salaValida, data, horaInicio, horaFim);
+
+    if (conflito) {
+      return Response.json({ error: MSG_CONFLITO_HORARIO }, { status: 409 });
+    }
+
+    await db.orm.public.Agendamento.create(novoAgendamento);
+  } catch (erro) {
+    // A constraint `@@unique([sala, data, horaInicio])` é o desempate quando duas
+    // requisições simultâneas passam juntas pelo `temConflito`: o perdedor
+    // precisa responder 409, e não 500.
+    if (categorizarErroDb(erro) === 'conflito') {
+      return Response.json({ error: MSG_CONFLITO_HORARIO }, { status: 409 });
+    }
+    registrarErroDb(erro, 'POST /api/agendamentos');
+    return Response.json(
+      { error: "Erro interno ao criar agendamento." },
+      { status: 500 }
+    );
+  }
+
+  return Response.json(novoAgendamento, { status: 201 });
+}
+
+export async function GET(request: Request): Promise<Response> {
+  const { searchParams } = new URL(request.url);
+  const sala = (searchParams.get('sala') ?? '').trim();
+  const data = (searchParams.get('data') ?? '').trim();
+
+  if (!sala || !data) {
+    return Response.json(
+      { error: "Parâmetros 'sala' e 'data' são obrigatórios." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    // Prisma 8: `.orderBy` recebe um seletor e a coleção é resolvida com `.all()`.
+    const agendamentos = await db.orm.public.Agendamento.where({
+      sala: sala as Sala,
+      data,
+    })
+      .orderBy((a) => a.horaInicio.asc())
+      .all();
+    return Response.json(agendamentos, { status: 200 });
+  } catch (erro) {
+    registrarErroDb(erro, 'GET /api/agendamentos');
+    return Response.json(
+      { error: 'Erro interno ao buscar agendamentos.' },
+      { status: 500 }
+    );
+  }
+}

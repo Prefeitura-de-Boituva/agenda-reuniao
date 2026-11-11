@@ -1,0 +1,100 @@
+[
+  {
+    "id": "schema.public",
+    "label": "Create schema \"public\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create schema \"public\"",
+        "sql": "CREATE SCHEMA IF NOT EXISTS \"public\"",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "table.agendamento",
+    "label": "Create table \"agendamento\"",
+    "summary": "Creates table \"agendamento\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "agendamento"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"agendamento\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"agendamento\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"agendamento\"",
+        "sql": "CREATE TABLE \"public\".\"agendamento\" (\n  \"criadoEm\" timestamptz DEFAULT (now()) NOT NULL,\n  \"data\" date NOT NULL,\n  \"departamento\" text NOT NULL,\n  \"horaFim\" character varying(5) NOT NULL,\n  \"horaInicio\" character varying(5) NOT NULL,\n  \"id\" text NOT NULL,\n  \"nome\" text NOT NULL,\n  \"sala\" text NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"agendamento_departamento_check_86dea612\" CHECK (\"departamento\" IN ('Chefia de Gabinete', 'Secretaria Municipal Governo e Planejamento Estratégico', 'Secretaria Municipal de Assuntos Jurídicos', 'Secretaria Municipal Administração, Gestão e Equipe Públicos', 'Secretaria Municipal Fazenda, Desenvolvimento Econômico e Finanças', 'Secretaria Municipal Turismo, Juventude e Empreendedorismo', 'Secretaria Municipal Obras Públicas', 'Secretaria Municipal Planejamento Urbano e Habitação')),\n  CONSTRAINT \"agendamento_sala_check_d53f5364\" CHECK (\"sala\" IN ('Sala 1', 'Sala 2', 'Sala 3'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"agendamento\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"agendamento\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.agendamento.agendamento_sala_data_horaInicio_key",
+    "label": "Add unique constraint on \"agendamento\" (sala, data, horaInicio)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "agendamento_sala_data_horaInicio_key",
+        "table": "agendamento"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"agendamento_sala_data_horaInicio_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agendamento_sala_data_horaInicio_key",
+          "public",
+          "\"public\".\"agendamento\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"agendamento_sala_data_horaInicio_key\"",
+        "sql": "ALTER TABLE \"public\".\"agendamento\" ADD CONSTRAINT \"agendamento_sala_data_horaInicio_key\" UNIQUE (\"sala\", \"data\", \"horaInicio\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"agendamento_sala_data_horaInicio_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agendamento_sala_data_horaInicio_key",
+          "public",
+          "\"public\".\"agendamento\""
+        ]
+      }
+    ]
+  }
+]
