@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLOSING_HOUR, OPENING_HOUR, SLOT_MINUTES, generateTimeSlots, getBookingStatus } from "@/lib/schedule";
+import { CLOSING_HOUR, OPENING_HOUR, SLOT_MINUTES, findBookingConflict, generateTimeSlots, getBookingStatus } from "@/lib/schedule";
 import { isSlotValido, timeToMinutes } from "@/lib/validations";
 import type { Booking } from "@/types/schedule";
 
@@ -89,5 +89,54 @@ describe("getBookingStatus com a grade de 30 minutos", () => {
     expect(
       getBookingStatus("2026-09-30", "09:30", "10:00", bookings).status
     ).toBe("available");
+  });
+});
+
+describe("findBookingConflict", () => {
+  const booking: Booking = {
+    id: "b1",
+    roomId: "sala-azul",
+    date: "2026-09-30",
+    name: "Reunião",
+    department: "TI",
+    startTime: "10:00",
+    endTime: "11:00",
+  };
+  const bookings = [booking];
+
+  it("devolve undefined quando não há agendamentos", () => {
+    expect(findBookingConflict("10:00", "10:30", [])).toBeUndefined();
+  });
+
+  it("detecta sobreposição exata", () => {
+    expect(findBookingConflict("10:00", "11:00", bookings)).toBe(booking);
+  });
+
+  it("detecta candidato contido no agendamento", () => {
+    expect(findBookingConflict("10:30", "11:00", bookings)).toBe(booking);
+  });
+
+  it("detecta candidato que engloba o agendamento", () => {
+    expect(findBookingConflict("09:00", "12:00", bookings)).toBe(booking);
+  });
+
+  it("detecta sobreposição parcial no início e no fim", () => {
+    expect(findBookingConflict("09:30", "10:30", bookings)).toBe(booking);
+    expect(findBookingConflict("10:30", "11:30", bookings)).toBe(booking);
+  });
+
+  it("não conflita com blocos adjacentes", () => {
+    expect(findBookingConflict("09:30", "10:00", bookings)).toBeUndefined();
+    expect(findBookingConflict("11:00", "11:30", bookings)).toBeUndefined();
+  });
+
+  it("ignora o próprio agendamento em edições (ignoreId)", () => {
+    expect(findBookingConflict("10:00", "11:00", bookings, "b1")).toBeUndefined();
+    expect(findBookingConflict("10:00", "11:00", bookings, "outro-id")).toBe(booking);
+  });
+
+  it("devolve o primeiro agendamento conflitante", () => {
+    const outro: Booking = { ...booking, id: "b2", startTime: "10:30", endTime: "12:00" };
+    expect(findBookingConflict("10:00", "12:00", [outro, booking])).toBe(outro);
   });
 });
