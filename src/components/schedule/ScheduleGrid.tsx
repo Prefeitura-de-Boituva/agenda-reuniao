@@ -5,6 +5,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2 } from
 import type { Booking, Room, RoomSchedule, TimeSlot } from "@/types/schedule";
 import {
   buildRoomSchedule,
+  findBookingConflict,
   generateTimeSlots,
   formatDateShort,
   getWeekDates,
@@ -77,12 +78,15 @@ function BookingFormModal({
   const startIndex = slots.findIndex((s) => s.startTime === startTime);
   const maxBlocks = slots.length - startIndex;
 
+  // Em edições o próprio agendamento é ignorado (`booking?.id`); em criações
+  // `booking` é undefined e nenhum id é excluído.
   const findConflict = (candidateStart: string, blocks: number): Booking | undefined =>
-    existingBookings.find((b) => {
-      if (mode === "edit" && b.id === booking?.id) return false;
-      const candidateEnd = computeEndTime(candidateStart, blocks);
-      return b.startTime < candidateEnd && candidateStart < b.endTime;
-    });
+    findBookingConflict(
+      candidateStart,
+      computeEndTime(candidateStart, blocks),
+      existingBookings,
+      booking?.id
+    );
 
   const durationOptions = Array.from({ length: maxBlocks }, (_, index) => index + 1).filter(
     (blocks) => !findConflict(startTime, blocks)
@@ -539,6 +543,7 @@ export function ScheduleGrid({
 
           salaInicial={selectedRoom.name}
           dataInicial={createTarget.date}
+          existingBookings={bookings[createTarget.date] ?? []}
           externalError={createError}
         />
       )}

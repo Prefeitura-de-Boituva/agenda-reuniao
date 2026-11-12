@@ -97,6 +97,21 @@ export function getBookingStatus(
   return { status: "available" };
 }
 
+/**
+ * Mesma regra de sobreposição de `temConflito` (src/lib/conflict.ts) e do
+ * BookingFormModal: dois intervalos conflitam quando `startTime < b.endTime &&
+ * b.startTime < endTime`. Blocos adjacentes (10:00–10:30 vs 10:30–11:00) não
+ * conflitam. `ignoreId` exclui o próprio agendamento em edições.
+ */
+export function findBookingConflict(
+  startTime: string,
+  endTime: string,
+  bookings: Booking[],
+  ignoreId?: string
+): Booking | undefined {
+  return bookings.find((b) => b.id !== ignoreId && b.startTime < endTime && startTime < b.endTime);
+}
+
 export function buildRoomSchedule(
   room: Room,
   startDate: Date,

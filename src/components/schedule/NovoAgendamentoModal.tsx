@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   ModalHeader,
@@ -9,7 +9,9 @@ import {
   Button,
 } from "@/components/ui";
 import { DEPARTAMENTOS, SALAS } from "@/lib/agendamentoOpcoes";
-import { toISODate } from "@/lib/schedule";
+import { fetchBookings } from "@/lib/bookings";
+import { ROOMS } from "@/lib/rooms";
+import { findBookingConflict, toISODate } from "@/lib/schedule";
 import {
   getSlotError,
   isDataPassada,
@@ -17,6 +19,7 @@ import {
   isPastToday,
   MSG_DATA_PASSADA,
 } from "@/lib/validations";
+import type { Booking } from "@/types/schedule";
 
 const gerarSlotsInicio = () => {
   const slots: string[] = [];
@@ -52,6 +55,8 @@ onConfirm: (data: {
     }) => Promise<boolean> | boolean;
   salaInicial?: string;
   dataInicial?: string;
+  /** Agendamentos da sala/data iniciais, já carregados pela grade. */
+  existingBookings?: Booking[];
   externalError?: string | null;
 }
 
@@ -61,6 +66,7 @@ export function NovoAgendamentoModal({
   onConfirm,
   salaInicial,
   dataInicial,
+  existingBookings,
   externalError,
 }: NovoAgendamentoModalProps) {
   // `toISODate` usa os getters locais; `toISOString()` (UTC) fazia o `min`
@@ -74,6 +80,49 @@ export function NovoAgendamentoModal({
   const [departamento, setDepartamento] = useState("");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Seed instantâneo com o que a grade já buscou; o effect abaixo revalida
+  // contra o servidor sempre que sala ou data mudam.
+  const [bookingsConflito, setBookingsConflito] = useState<Booking[]>(
+    () => existingBookings ?? []
+  );
+  const [carregandoBookings, setCarregandoBookings] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const roomId = ROOMS.find((r) => r.name === sala)?.id;
+    if (!roomId) return;
+    let cancelado = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- ativa o loading antes do fetch; mesmo padrão de grade/page.tsx.
+    setCarregandoBookings(true);
+    fetchBookings(roomId, [data]).then((resultado) => {
+      if (cancelado) return;
+      setBookingsConflito(resultado[data] ?? []);
+      setCarregandoBookings(false);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [open, sala, data]);
+
+  const slotsInicio = useMemo(
+    () =>
+      SLOTS_INICIO.map((value, i) => ({
+        value,
+        conflito: findBookingConflict(value, SLOTS_FIM[i], bookingsConflito),
+      })),
+    [bookingsConflito]
+  );
+
+  const slotsFim = useMemo(
+    () =>
+      SLOTS_FIM.map((value) => ({
+        value,
+        conflito: findBookingConflict(inicio, value, bookingsConflito),
+      })),
+    [inicio, bookingsConflito]
+  );
+
+  const conflitoAtual = findBookingConflict(inicio, fim, bookingsConflito);
 
   const validar = () => {
     if (isDataPassada(data)) return MSG_DATA_PASSADA;
@@ -87,6 +136,9 @@ export function NovoAgendamentoModal({
     if (!isDataValida(data)) return "Data inválida. Use o formato YYYY-MM-DD.";
     const erroSlot = getSlotError(inicio, fim);
     if (erroSlot) return erroSlot;
+    // Guarda extra: o botão já fica desabilitado em conflito, mas o submit
+    // implícito (Enter num campo) não deve passar. Mesma mensagem do 409 da API.
+    if (conflitoAtual) return "Horário conflita com agendamento existente";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -161,9 +213,19 @@ export function NovoAgendamentoModal({
                   if (fim <= novoInicio) setFim(novoFim);
                 }}
               >
-                {SLOTS_INICIO.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
+                {slotsInicio.map((slot) => (
+                  <option
+                    key={slot.value}
+                    value={slot.value}
+                    disabled={!!slot.conflito}
+                    className={slot.conflito ? "opacity-50 cursor-not-allowed" : undefined}
+                    title={
+                      slot.conflito
+                        ? `Horário já agendado por ${slot.conflito.name} — ${slot.conflito.department}`
+                        : undefined
+                    }
+                  >
+                    {slot.conflito ? `${slot.value} (Ocupado)` : slot.value}
                   </option>
                 ))}
               </select>
@@ -179,13 +241,36 @@ export function NovoAgendamentoModal({
                 value={fim}
                 onChange={(e) => setFim(e.target.value)}
               >
-                {SLOTS_FIM.filter((t) => t > inicio).map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
+                {slotsFim
+                  .filter((slot) => slot.value > inicio)
+                  .map((slot) => (
+                    <option
+                      key={slot.value}
+                      value={slot.value}
+                      disabled={!!slot.conflito}
+                      className={slot.conflito ? "opacity-50 cursor-not-allowed" : undefined}
+                      title={
+                        slot.conflito
+                          ? `Horário já agendado por ${slot.conflito.name} — ${slot.conflito.department}`
+                          : undefined
+                      }
+                    >
+                      {slot.conflito ? `${slot.value} (Ocupado)` : slot.value}
+                    </option>
+                  ))}
               </select>
             </div>
+
+            {carregandoBookings && (
+              <p className="text-tiny text-neutral-500">Verificando disponibilidade…</p>
+            )}
+            {conflitoAtual && (
+              <p className="text-tiny font-medium text-danger-700" role="alert">
+                Conflito de horário com o agendamento de {conflitoAtual.name} (
+                {conflitoAtual.department}) das {conflitoAtual.startTime} às{" "}
+                {conflitoAtual.endTime}.
+              </p>
+            )}
 
             <Input label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} required />
 
@@ -223,7 +308,7 @@ export function NovoAgendamentoModal({
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || carregandoBookings || !!conflitoAtual}>
               {loading ? "Carregando…" : "Confirmar"}
             </Button>
           </ModalFooter>
