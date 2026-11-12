@@ -336,8 +336,7 @@ export function ScheduleGrid({
 
       <div
         className={cn(
-          "relative overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-card",
-          "sm:overflow-visible",
+          "relative w-full min-w-0 overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-card",
           isLoading && "pointer-events-none"
         )}
         role="grid"
@@ -353,14 +352,13 @@ export function ScheduleGrid({
         )}
         <table
           className={cn(
-            "w-full min-w-max border-collapse text-sm",
-            "sm:min-w-0",
+            "w-full min-w-[760px] border-collapse text-sm sm:min-w-0",
             isLoading && "pointer-events-none"
           )}
         >
           <thead>
             <tr className="border-b border-neutral-200">
-              <th className="sticky left-0 bg-white px-4 py-3 text-left text-caption font-semibold text-neutral-500">
+              <th className="sticky left-0 z-10 w-28 min-w-28 bg-white px-2 py-3 text-left text-caption font-semibold text-neutral-500 sm:px-4">
                 Horário
               </th>
               {schedule.dates.map((date) => {
@@ -371,7 +369,7 @@ export function ScheduleGrid({
                   <th
                     key={date}
                     className={cn(
-                      "px-4 py-3 text-left text-caption font-semibold",
+                      "min-w-20 px-2 py-3 text-left text-caption font-semibold sm:px-4",
                       isHighlighted ? "bg-primary-100 text-primary-900 border-b-2 border-primary" : isToday ? "text-primary" : "text-neutral-700"
                     )}
                     scope="col"
@@ -389,13 +387,13 @@ export function ScheduleGrid({
               const endTime = schedule.slotsByDate[schedule.dates[0]][index].endTime;
               return (
                 <tr key={startTime} className="border-b border-neutral-100 last:border-b-0">
-                  <td className="sticky left-0 bg-white px-4 py-2 whitespace-nowrap text-body tabular-nums text-neutral-600">
+                  <td className="sticky left-0 z-[1] w-28 min-w-28 bg-white px-2 py-2 whitespace-nowrap text-body tabular-nums text-neutral-600 sm:px-4">
                     {startTime} – {endTime}
                   </td>
                   {schedule.dates.map((date) => {
                     const slot = schedule.slotsByDate[date][index];
                     return (
-                      <td key={date} className="px-2 py-1.5">
+                      <td key={date} className="min-w-20 px-1 py-1.5 sm:px-2">
                         <div
                           role="button"
                           tabIndex={0}
@@ -417,7 +415,7 @@ export function ScheduleGrid({
                               : `Agendar ${date} das ${slot.startTime} às ${slot.endTime}`
                           }
                           className={cn(
-                            "flex h-12 w-full items-center overflow-hidden rounded-lg border px-2 py-1 text-caption",
+                            "flex h-12 w-full min-w-0 items-center gap-1 overflow-hidden rounded-lg border px-1 py-1 text-caption sm:gap-2 sm:px-2",
                             "focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:outline-none",
                             slot.status === "available" &&
                               "cursor-pointer border-success-200 bg-success-50 text-success-700 hover:border-success-300 hover:bg-success-100",
@@ -427,32 +425,35 @@ export function ScheduleGrid({
                         >
                           {slot.status === "booked" && slot.booking && (
                             <>
-                              <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                              <span
+                                className="flex min-w-0 flex-1 flex-col leading-tight"
+                                title={`${slot.booking.name} — ${slot.booking.department}`}
+                              >
                                 <span className="truncate font-medium">{slot.booking.name}</span>
                                 <span className="truncate">{slot.booking.department}</span>
                               </span>
-                              <span className="flex shrink-0 items-center gap-1">
+                              <span className="flex shrink-0 items-center gap-0 sm:gap-1">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setEditTarget(slot.booking!);
                                   }}
-                                  className="rounded p-1 text-danger-700 hover:bg-danger-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-danger-400 focus-visible:outline-none"
+                                  className="rounded p-0.5 text-danger-700 hover:bg-danger-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-danger-400 focus-visible:outline-none sm:p-1"
                                   aria-label="Editar agendamento"
                                   type="button"
                                 >
-                                  <Pencil className="size-3.5" />
+                                  <Pencil className="size-3 sm:size-3.5" />
                                 </button>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     openCancelModal(slot.booking!);
                                   }}
-                                  className="rounded p-1 text-danger-700 hover:bg-danger-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-danger-400 focus-visible:outline-none"
+                                  className="rounded p-0.5 text-danger-700 hover:bg-danger-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-danger-400 focus-visible:outline-none sm:p-1"
                                   aria-label="Cancelar agendamento"
                                   type="button"
                                 >
-                                  <Trash2 className="size-3.5" />
+                                  <Trash2 className="size-3 sm:size-3.5" />
                                 </button>
                               </span>
                             </>
