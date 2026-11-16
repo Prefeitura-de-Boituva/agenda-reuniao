@@ -40,7 +40,25 @@ describe("Responsividade e Acessibilidade", () => {
 
       it("grade de horarios esta legivel", () => {
         cy.visit("/grade");
-        cy.get("table").should("be.visible");
+        if (width < 768) {
+          cy.get("section[aria-label='Grade de horários por dia']").should("be.visible");
+          cy.get("section[aria-label='Grade de horários por dia'] article").should("have.length", 5);
+          cy.get("[data-testid='desktop-table-container']").should("not.be.visible");
+        } else {
+          cy.get("table").should("be.visible");
+          cy.get("[data-testid='desktop-table-container']").then(($wrapper) => {
+            expect($wrapper[0].getBoundingClientRect().width).to.be.at.most(width + 1);
+          });
+          cy.get("section[aria-label='Grade de horários por dia']").should("not.be.visible");
+        }
+        cy.get("table").then(($table) => {
+          if (!$table.is(":visible")) return;
+          const table = $table[0];
+          const wrapper = table.parentElement;
+          expect(wrapper).not.to.equal(null);
+          expect(wrapper!.getBoundingClientRect().width).to.be.at.most(width + 1);
+          expect(table.scrollWidth).to.be.greaterThan(0);
+        });
       });
 
       it("modais nao vazam do viewport", () => {
