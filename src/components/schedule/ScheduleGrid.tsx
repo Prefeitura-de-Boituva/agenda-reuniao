@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2 } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2 } from "lucide-react";
 import type { Booking, Room, RoomSchedule, TimeSlot } from "@/types/schedule";
 import {
   buildRoomSchedule,
@@ -231,6 +231,8 @@ export function ScheduleGrid({
   const [createTarget, setCreateTarget] = useState<{ date: string; startTime: string } | null>(null);
   const [editTarget, setEditTarget] = useState<Booking | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null);
+  const [actionsTarget, setActionsTarget] = useState<Booking | null>(null);
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(() => new Set());
   const [notice, setNotice] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -250,6 +252,23 @@ export function ScheduleGrid({
 
   const weekDates = getWeekDates(weekStart);
   const todayISO = toISODate(new Date());
+  const isDayExpanded = (date: string) =>
+    date === todayISO ? !expandedDays.has(date) : expandedDays.has(date);
+  const toggleDay = (date: string) =>
+    setExpandedDays((current) => {
+      const next = new Set(current);
+      const currentlyExpanded = date === todayISO ? !next.has(date) : next.has(date);
+      if (currentlyExpanded) {
+        // Today is expanded by default; other days are collapsed by default.
+        if (date === todayISO) next.add(date);
+        else next.delete(date);
+      } else if (date === todayISO) {
+        next.delete(date);
+      } else {
+        next.add(date);
+      }
+      return next;
+    });
 
   const openCreateModal = (slot: TimeSlot, date: string) => {
     if (slot.status !== "available") return;
@@ -334,13 +353,143 @@ export function ScheduleGrid({
         </div>
       </div>
 
+      <section
+        className={cn("flex w-full min-w-0 flex-col gap-4 md:hidden", isLoading && "pointer-events-none")}
+        aria-label="Grade de horários por dia"
+        data-testid="mobile-schedule"
+      >
+        {isLoading && (
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white p-4 text-neutral-500">
+            <Loader2 className="size-5 animate-spin text-primary" />
+            <span className="text-caption font-medium">Carregando agendamentos...</span>
+          </div>
+        )}
+        {schedule.dates.map((date) => {
+          const dayStart = parseDate(date);
+          const isToday = date === todayISO;
+          const isHighlighted = date === highlightedDate;
+          const expanded = isDayExpanded(date);
+          const availableCount = schedule.slotsByDate[date].filter(
+            (slot) => slot.status === "available"
+          ).length;
+          const slotsId = `mobile-slots-${date}`;
+          return (
+            <article
+              key={date}
+              data-testid="mobile-day-card"
+              className={cn(
+                "w-full min-w-0 max-w-full overflow-hidden rounded-xl border bg-white shadow-card",
+                isToday ? "border-2 border-primary bg-primary-50" : "border-neutral-200",
+                isHighlighted && !isToday && "border-primary-300"
+              )}
+            >
+              <h2 className="m-0">
+                <button
+                  type="button"
+                  aria-expanded={expanded}
+                  aria-controls={slotsId}
+                  aria-label={`${expanded ? "Recolher" : "Expandir"} horários de ${formatDateShort(dayStart)}; ${availableCount} de ${schedule.slotsByDate[date].length} disponíveis`}
+                  onClick={() => toggleDay(date)}
+                  className="flex w-full min-w-0 items-center gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400"
+                >
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn("size-5 shrink-0 text-neutral-500 transition-transform duration-200", !expanded && "-rotate-90")}
+                  />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className={cn("truncate text-body font-semibold capitalize", isToday ? "text-primary-800" : "text-neutral-800")}>
+                      {formatDateShort(dayStart)}
+                    </span>
+                    <span className="text-tiny text-neutral-600">
+                      {availableCount}/{schedule.slotsByDate[date].length} livres
+                    </span>
+                  </span>
+                  {isToday && (
+                    <span className="shrink-0 rounded-full bg-primary-100 px-2.5 py-1 text-tiny font-semibold text-primary-800">
+                      Hoje
+                    </span>
+                  )}
+                </button>
+              </h2>
+              <div
+                id={slotsId}
+                aria-label={`Horários de ${formatDateShort(dayStart)}`}
+                aria-hidden={!expanded}
+                inert={!expanded}
+                className={cn(
+                  "grid transition-[grid-template-rows] duration-200 motion-reduce:transition-none",
+                  expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                )}
+              >
+              <ul
+                className={cn(
+                  "min-h-0 min-w-0 overflow-hidden divide-y divide-neutral-100",
+                  expanded && "border-t border-neutral-200"
+                )}
+              >
+                {schedule.slotsByDate[date].map((slot) => {
+                  const booking = slot.booking;
+                  const activateSlot = () =>
+                    slot.status === "booked"
+                      ? booking && setActionsTarget(booking)
+                      : openCreateModal(slot, date);
+                  return (
+                    <li key={slot.startTime} data-testid="mobile-slot" className="min-w-0 px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={activateSlot}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter" && event.key !== " ") return;
+                          event.preventDefault();
+                          activateSlot();
+                        }}
+                        aria-label={
+                          booking
+                            ? `Ver ações do agendamento de ${booking.name}, ${slot.startTime} às ${slot.endTime}`
+                            : `Agendar ${date} das ${slot.startTime} às ${slot.endTime}`
+                        }
+                        className={cn(
+                          "flex w-full min-w-0 max-w-full items-center gap-3 rounded-lg border p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400",
+                          booking
+                            ? "border-danger-200 bg-danger-50 text-danger-800 hover:bg-danger-100"
+                            : "border-success-200 bg-success-50 text-success-700 hover:bg-success-100"
+                        )}
+                      >
+                        <span className="flex shrink-0 flex-col text-caption font-semibold tabular-nums leading-tight">
+                          <span>{slot.startTime}</span>
+                          <span className="text-tiny font-normal">{slot.endTime}</span>
+                        </span>
+                        {booking ? (
+                          <span className="flex min-w-0 flex-1 flex-col overflow-hidden leading-tight">
+                            <span className="truncate text-caption font-medium" title={booking.name}>
+                              {booking.name}
+                            </span>
+                            <span className="truncate text-tiny" title={booking.department}>
+                              {booking.department}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="ml-auto shrink-0 text-caption font-semibold">LIVRE</span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              </div>
+            </article>
+          );
+        })}
+      </section>
+
       <div
         className={cn(
-          "relative w-full min-w-0 overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-card",
+          "relative hidden w-full min-w-0 overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-card md:block",
           isLoading && "pointer-events-none"
         )}
         role="grid"
         aria-label="Grade de horários da semana"
+        data-testid="desktop-table-container"
       >
         {isLoading && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-white/70">
@@ -426,11 +575,11 @@ export function ScheduleGrid({
                           {slot.status === "booked" && slot.booking && (
                             <>
                               <span
-                                className="flex min-w-0 flex-1 flex-col leading-tight"
+                                className="flex min-w-0 flex-1 flex-col overflow-hidden leading-tight"
                                 title={`${slot.booking.name} — ${slot.booking.department}`}
                               >
-                                <span className="truncate font-medium">{slot.booking.name}</span>
-                                <span className="truncate">{slot.booking.department}</span>
+                                <span className="truncate font-medium" title={slot.booking.name}>{slot.booking.name}</span>
+                                <span className="truncate" title={slot.booking.department}>{slot.booking.department}</span>
                               </span>
                               <span className="flex shrink-0 items-center gap-0 sm:gap-1">
                                 <button
@@ -469,6 +618,51 @@ export function ScheduleGrid({
           </tbody>
         </table>
       </div>
+
+      {actionsTarget && (
+        <Modal open onClose={() => setActionsTarget(null)}>
+          <ModalContent>
+            <ModalHeader>Ações do agendamento</ModalHeader>
+            <ModalBody className="flex flex-col gap-2">
+              <p className="truncate font-medium text-neutral-900" title={actionsTarget.name}>
+                {actionsTarget.name}
+              </p>
+              <p className="truncate text-caption text-neutral-600" title={actionsTarget.department}>
+                {actionsTarget.department}
+              </p>
+              <p className="text-caption text-neutral-500">
+                {actionsTarget.startTime} – {actionsTarget.endTime}
+              </p>
+            </ModalBody>
+            <ModalFooter className="flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                className="w-full"
+                onClick={() => {
+                  setEditTarget(actionsTarget);
+                  setActionsTarget(null);
+                }}
+              >
+                Editar agendamento
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setDeleteTarget(actionsTarget);
+                  setActionsTarget(null);
+                }}
+              >
+                Cancelar agendamento
+              </Button>
+              <Button type="button" variant="outline" className="w-full" onClick={() => setActionsTarget(null)}>
+                Fechar
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      )}
 
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-1.5">
