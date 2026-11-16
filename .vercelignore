@@ -43,9 +43,6 @@ docs
 validacao
 *.md
 !README.md
-lighthouse-report.json
-test-post.cjs
-test-post.js
 test-create.bat
 
 # skills instaladas pelo postinstall (o --ignore-scripts do vercel.json não as gera lá)
