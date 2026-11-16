@@ -54,7 +54,7 @@ export function Header({ className }: HeaderProps) {
           className="flex items-center gap-2 font-semibold text-white"
         >
           <Image
-            src="/logo-branco.png"
+            src="/logo-azul.png"
             alt=""
             width={27}
             height={24}
