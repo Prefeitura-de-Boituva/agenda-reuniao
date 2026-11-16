@@ -36,7 +36,7 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState<string>(toISODate(new Date()));
   const selectedSala = SALA_BY_ROOM_ID[selectedRoomId] ?? ROOMS[0].name;
 
-  const { stats, bookingsByRoom, isReady } = useDayBookings(selectedDate);
+  const { stats, bookingsByRoom, isReady, erro } = useDayBookings(selectedDate);
 
   // Apply light background tint to whole page based on selected room
   useEffect(() => {
@@ -44,9 +44,12 @@ export default function Home() {
   }, [selectedRoomId]);
 
   const roomStat = stats.byRoom[selectedRoomId];
-  // Sem resposta da API ainda não se mostra número nenhum: os blocos ficam em
-  // traço em vez de arriscar um total que não vem do banco.
+  // Sem resposta da API nenhum número é mostrado: os blocos ficam em traço em
+  // vez de exibir zero, que seria indistinguível de um dia realmente livre.
+  const semDados = !isReady || erro;
   const loadingDetail = `Carregando dados de ${formatDate(parseDate(selectedDate))}...`;
+  const erroDetail = "Não foi possível carregar os dados das salas.";
+  const detailSemDados = erro ? erroDetail : loadingDetail;
 
   return (
     <div className="flex flex-col gap-8 py-8">
@@ -68,16 +71,16 @@ export default function Home() {
         />
         <StatCard
           label="Reuniões Hoje"
-          value={isReady ? String(stats.totalBookings) : "—"}
-          detail={isReady ? `${selectedSala}: ${roomStat?.bookingCount ?? 0}` : loadingDetail}
+          value={semDados ? "—" : String(stats.totalBookings)}
+          detail={semDados ? detailSemDados : `${selectedSala}: ${roomStat?.bookingCount ?? 0}`}
         />
         <StatCard
           label="Horários Ocupados"
-          value={isReady ? String(stats.totalOccupiedSlots) : "—"}
+          value={semDados ? "—" : String(stats.totalOccupiedSlots)}
           detail={
-            isReady
-              ? `${selectedSala}: ${roomStat?.occupiedSlots ?? 0} de ${roomStat?.totalSlots ?? 0}`
-              : loadingDetail
+            semDados
+              ? detailSemDados
+              : `${selectedSala}: ${roomStat?.occupiedSlots ?? 0} de ${roomStat?.totalSlots ?? 0}`
           }
         />
       </section>
@@ -108,6 +111,7 @@ export default function Home() {
         selectedSala={selectedSala}
         bookings={bookingsByRoom[selectedRoomId] ?? []}
         isLoading={!isReady}
+        hasError={erro}
       />
     </div>
   );

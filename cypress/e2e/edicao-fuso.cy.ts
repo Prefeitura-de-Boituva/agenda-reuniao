@@ -8,24 +8,14 @@
 // horário passado era pulado em silêncio.
 //
 // Este spec congela o relógio às 22:00 de hoje e abre a edição de uma reserva do
-// próprio dia: a mensagem precisa aparecer. Sem o banco em jogo — a reserva entra
-// pela grade via `localStorage`, que é o mesmo caminho que o usuário usa.
+// próprio dia: a mensagem precisa aparecer.
+//
+// A reserva é servida por um stub do `GET /api/agendamentos`, que é de onde a grade
+// realmente lê. Criá-la via POST não funciona neste cenário: o servidor usa o
+// relógio real e a RN12 recusaria o horário das 09:00 na maior parte do dia.
 describe('Edição de agendamento — bloqueio de horário já passado no dia corrente', () => {
-  const STORAGE_KEY = 'agenda-reuniao:grade:v1';
-
   const toISODate = (d: Date): string =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-  /** Espelha `getWeekStart`: segunda-feira, com domingo pulando para a segunda seguinte. */
-  const weekStart = (d: Date): Date => {
-    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    if (start.getDay() === 0) {
-      start.setDate(start.getDate() + 1);
-      return start;
-    }
-    start.setDate(start.getDate() - (start.getDay() - 1));
-    return start;
-  };
 
   // 22:00 de hoje no fuso local: o instante UTC correspondente já pertence a amanhã.
   const agora = new Date();
@@ -34,32 +24,28 @@ describe('Edição de agendamento — bloqueio de horário já passado no dia co
 
   const reserva = {
     id: 'b-fuso-1',
-    roomId: 'sala-azul',
-    date: hoje,
-    name: 'Reunião da madrugada',
-    department: 'Secretaria Municipal Obras Públicas',
-    startTime: '09:00',
-    endTime: '10:00',
-  };
-
-  const estado = {
-    overrides: {
-      "sala-azul": {
-        [hoje]: { upserts: [reserva], deletedIds: [] },
-      },
-    },
-    selectedRoomId: 'sala-azul',
-    weekStartIso: toISODate(weekStart(agora)),
+    nome: 'Reunião da madrugada',
+    departamento: 'Secretaria Municipal Obras Públicas',
+    sala: 'Sala Azul',
+    data: hoje,
+    horaInicio: '09:00',
+    horaFim: '10:00',
+    criadoEm: `${hoje}T08:00:00.000Z`,
   };
 
   beforeEach(() => {
     cy.viewport(1280, 900);
     cy.clock(agora, ['Date']);
-    cy.visit('/grade', {
-      onBeforeLoad(win) {
-        win.localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
-      },
-    });
+    cy.intercept('GET', /\/api\/agendamentos\?/, (req) => {
+      const url = new URL(req.url);
+      const ehDaReserva =
+        url.searchParams.get('sala') === reserva.sala &&
+        url.searchParams.get('data') === hoje;
+      req.reply({ statusCode: 200, body: ehDaReserva ? [reserva] : [] });
+    }).as('agendamentos');
+
+    cy.visit(`/grade?date=${hoje}&room=sala-azul`);
+    cy.wait('@agendamentos');
     cy.contains('button', 'Sala Azul').should('exist');
     cy.get('[aria-label="Editar agendamento"]').first().click();
     cy.get("[role='dialog']").should('be.visible');

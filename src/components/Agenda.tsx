@@ -9,11 +9,16 @@ export const Agenda: React.FC<{
   selectedSala: string;
   bookings: Booking[];
   isLoading: boolean;
-}> = ({ selectedSala, bookings, isLoading }) => (
+  hasError: boolean;
+}> = ({ selectedSala, bookings, isLoading, hasError }) => (
   <section className="flex flex-col gap-4 rounded-xl bg-white p-6 shadow-card border border-neutral-200 max-w-md">
     <h2 className="text-h3 font-semibold text-neutral-900">Agenda da {selectedSala}</h2>
     {isLoading ? (
       <p className="text-sm text-neutral-600">Carregando agenda...</p>
+    ) : hasError ? (
+      <p className="text-sm text-danger-700" role="alert">
+        Não foi possível carregar a agenda desta sala.
+      </p>
     ) : bookings.length === 0 ? (
       <p className="text-sm text-neutral-600">Nenhuma reunião agendada.</p>
     ) : (

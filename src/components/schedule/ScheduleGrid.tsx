@@ -18,6 +18,7 @@ import { NovoAgendamentoModal } from "./NovoAgendamentoModal";
 import { CancelarAgendamentoModal } from "./CancelarAgendamentoModal";
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Toast } from "@/components/ui";
 import { getSlotError, isPastToday, isSlotValido } from "@/lib/validations";
+import { ApiError, editarAgendamento } from "@/lib/apiClient";
 import { cn } from "@/lib/utils";
 
 function computeEndTime(startTime: string, durationBlocks: number): string {
@@ -43,8 +44,9 @@ interface BookingFormModalProps {
   initialStartTime?: string;
   booking?: Booking;
   existingBookings: Booking[];
-  onSave: (booking: Booking) => void;
+  onSave: (booking: Booking) => void | Promise<void>;
   onClose: () => void;
+  externalError?: string | null;
 }
 
 function BookingFormModal({
@@ -56,6 +58,7 @@ function BookingFormModal({
   existingBookings,
   onSave,
   onClose,
+  externalError,
 }: BookingFormModalProps) {
   const slots = generateTimeSlots();
   const [name, setName] = useState(booking?.name ?? "");
@@ -73,6 +76,7 @@ function BookingFormModal({
     return Math.round((endTotal - startTotal) / SLOT_MINUTES);
   });
   const [durationBlocks, setDurationBlocks] = useState(initialBlocks);
+  const [saving, setSaving] = useState(false);
 
   const startIndex = slots.findIndex((s) => s.startTime === startTime);
   const maxBlocks = slots.length - startIndex;
@@ -98,9 +102,9 @@ function BookingFormModal({
 
   const pastError = isPastToday(date, startTime) ? "Horário já passou no dia atual." : null;
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (conflict || slotError || pastError) return;
+    if (conflict || slotError || pastError || saving) return;
     const base =
       booking ??
       ({
@@ -108,7 +112,14 @@ function BookingFormModal({
         roomId: room.id,
         date,
       } as Booking);
-    onSave({ ...base, name, department, startTime, endTime });
+    setSaving(true);
+    try {
+      // `onSave` grava no servidor antes de atualizar a grade; se falhar, o
+      // modal continua aberto com o erro em `externalError`.
+      await onSave({ ...base, name, department, startTime, endTime });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -184,13 +195,21 @@ function BookingFormModal({
                 {slotError}
               </p>
             )}
+            {externalError && (
+              <p className="text-tiny font-medium text-danger-700" role="alert">
+                {externalError}
+              </p>
+            )}
           </ModalBody>
           <ModalFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={!!conflict || slotError !== null || pastError !== null}>
-              {mode === "create" ? "Agendar" : "Salvar"}
+            <Button
+              type="submit"
+              disabled={saving || !!conflict || slotError !== null || pastError !== null}
+            >
+              {saving ? "Salvando…" : mode === "create" ? "Agendar" : "Salvar"}
             </Button>
           </ModalFooter>
         </form>
@@ -233,6 +252,7 @@ export function ScheduleGrid({
   const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!notice) return;
@@ -549,12 +569,38 @@ export function ScheduleGrid({
           date={editTarget.date}
           booking={editTarget}
           existingBookings={bookings[editTarget.date] ?? []}
-          onSave={(booking) => {
+          externalError={editError}
+          onSave={async (booking) => {
+            // A edição é gravada no banco antes de atualizar a grade: sem isso a
+            // reserva editada só existia no navegador de quem editou e a tela
+            // inicial continuava contando o horário antigo.
+            try {
+              await editarAgendamento(booking.id, {
+                nome: booking.name,
+                departamento: booking.department,
+                horaInicio: booking.startTime,
+                horaFim: booking.endTime,
+              });
+            } catch (err) {
+              // 404 = a reserva não existe mais no servidor (cancelada em outra
+              // aba/sessão desde que a grade foi carregada). Aplica a edição mesmo
+              // assim, como o cancelamento já faz, em vez de bloquear o usuário.
+              if (!(err instanceof ApiError && err.status === 404)) {
+                setEditError(
+                  err instanceof Error ? err.message : "Não foi possível salvar a edição."
+                );
+                return;
+              }
+            }
+            setEditError(null);
             onUpdateBooking(booking);
             setEditTarget(null);
             setNotice("Editado com sucesso!");
           }}
-          onClose={() => setEditTarget(null)}
+          onClose={() => {
+            setEditTarget(null);
+            setEditError(null);
+          }}
         />
       )}
       {deleteTarget && (

@@ -1,19 +1,14 @@
-import type { Booking } from "@/types/schedule";
-
-interface BookingOverrideEntry {
-  upserts: Booking[];
-  deletedIds: string[];
-}
-
-export type RoomOverrides = Record<string, BookingOverrideEntry>;
-
 interface PersistedGradeState {
-  overrides: Record<string, RoomOverrides>;
   selectedRoomId: string;
   weekStartIso: string;
 }
 
-const STORAGE_KEY = "agenda-reuniao:grade:v1";
+// v2: só estado de navegação é persistido. A versão anterior guardava também as
+// reservas criadas/editadas/canceladas no navegador, e esse cache local passava a
+// vencer o dado fresco da API para o mesmo id — a Grade de Horários podia exibir
+// uma programação diferente da tela inicial e do banco. Trocar a chave descarta o
+// cache já gravado nos navegadores.
+const STORAGE_KEY = "agenda-reuniao:grade:v2";
 
 export function loadGradeState(): PersistedGradeState | null {
   if (typeof window === "undefined") return null;
@@ -28,9 +23,7 @@ export function loadGradeState(): PersistedGradeState | null {
       typeof data !== "object" ||
       data === null ||
       typeof (data as Record<string, unknown>).selectedRoomId !== "string" ||
-      typeof (data as Record<string, unknown>).weekStartIso !== "string" ||
-      typeof (data as Record<string, unknown>).overrides !== "object" ||
-      (data as Record<string, unknown>).overrides === null
+      typeof (data as Record<string, unknown>).weekStartIso !== "string"
     ) {
       return null;
     }

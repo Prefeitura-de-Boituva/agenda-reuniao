@@ -16,7 +16,7 @@ type Db = ReturnType<typeof criarDbReal>;
 /**
  * Mock em memória usado quando DATABASE_URL não está definida, para que a UI e
  * os testes E2E rode sem banco real. Implementa só o que a aplicação usa
- * (`where`/`orderBy`/`all`/`first`/`delete` e `create`) e é convertido para o
+ * (`where`/`orderBy`/`all`/`first`/`update`/`delete` e `create`) e é convertido para o
  * tipo do cliente real no retorno: a inferência dos seletores do Prisma 8
  * continua vindo de `criarDbReal`.
  */
@@ -38,6 +38,10 @@ function criarDbMock(): Db {
         },
         async all() {
           return matched;
+        },
+        async update(dados: Partial<Agendamento>) {
+          const alvo = matched[0];
+          return alvo ? Object.assign(alvo, dados) : null;
         },
         async delete() {
           for (let i = store.length - 1; i >= 0; i--) {

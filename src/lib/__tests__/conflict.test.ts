@@ -17,6 +17,7 @@ import { db } from "../../prisma/db";
 import { temConflito } from "../conflict";
 
 type Agendamento = {
+  id?: string;
   sala: string;
   data: string;
   horaInicio: string;
@@ -118,6 +119,23 @@ describe("temConflito", () => {
       { sala: "Sala Azul", data: "2026-09-20", horaInicio: "10:00", horaFim: "11:00" }
     ]);
     const result = await temConflito("Sala Azul", "2026-09-20", "10:30", "11:00");
+    expect(result).toBe(true);
+  });
+
+  it("ignora a própria reserva quando editar (ignorarId)", async () => {
+    mockWhere([
+      { id: "abc-123", sala: "Sala Azul", data: "2026-09-20", horaInicio: "10:00", horaFim: "11:00" }
+    ]);
+    const result = await temConflito("Sala Azul", "2026-09-20", "10:00", "11:30", "abc-123");
+    expect(result).toBe(false);
+  });
+
+  it("mantém o conflito quando a sobreposição é de outra reserva", async () => {
+    mockWhere([
+      { id: "abc-123", sala: "Sala Azul", data: "2026-09-20", horaInicio: "10:00", horaFim: "11:00" },
+      { id: "def-456", sala: "Sala Azul", data: "2026-09-20", horaInicio: "11:00", horaFim: "12:00" }
+    ]);
+    const result = await temConflito("Sala Azul", "2026-09-20", "10:30", "11:30", "abc-123");
     expect(result).toBe(true);
   });
 });
