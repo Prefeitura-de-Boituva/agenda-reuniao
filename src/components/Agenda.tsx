@@ -1,45 +1,40 @@
 import React from "react";
-
-interface AgendaItem {
-  id: string;
-  title: string;
-  time: string; // e.g., "09:00 - 10:00"
-  description?: string;
-}
+import type { Booking } from "@/types/schedule";
 
 /**
- * Simple agenda placeholder for a given "sala".
- *
- * In a real app this would fetch data per‑room, but for the purpose of the
- * exercise we just render a static list that changes its heading based on the
- * `selectedSala` prop.
+ * Agenda da sala selecionada: as mesmas reservas que a Grade de Horários mostra
+ * para aquela sala naquele dia, já ordenadas por horário de início.
  */
 export const Agenda: React.FC<{
   selectedSala: string;
-}> = ({ selectedSala }) => {
-  // Dummy data – each sala shows the same three items just for demo.
-  const items: AgendaItem[] = [
-    { id: "1", title: "Reunião de Planejamento", time: "09:00 - 10:00" },
-    { id: "2", title: "Apresentação de Projeto", time: "11:00 - 12:00" },
-    { id: "3", title: "Feedback de Sprint", time: "14:00 - 15:00" },
-  ];
-
-  return (
-    <section className="flex flex-col gap-4 rounded-xl bg-white p-6 shadow-card border border-neutral-200 max-w-md">
-      <h2 className="text-h3 font-semibold text-neutral-900">
-        Agenda da {selectedSala}
-      </h2>
+  bookings: Booking[];
+  isLoading: boolean;
+  hasError: boolean;
+}> = ({ selectedSala, bookings, isLoading, hasError }) => (
+  <section className="flex flex-col gap-4 rounded-xl bg-white p-6 shadow-card border border-neutral-200 max-w-md">
+    <h2 className="text-h3 font-semibold text-neutral-900">Agenda da {selectedSala}</h2>
+    {isLoading ? (
+      <p className="text-sm text-neutral-600">Carregando agenda...</p>
+    ) : hasError ? (
+      <p className="text-sm text-danger-700" role="alert">
+        Não foi possível carregar a agenda desta sala.
+      </p>
+    ) : bookings.length === 0 ? (
+      <p className="text-sm text-neutral-600">Nenhuma reunião agendada.</p>
+    ) : (
       <ul className="flex flex-col gap-2">
-        {items.map((it) => (
-          <li key={it.id} className="p-3 border border-neutral-200 rounded-lg">
-            <p className="font-medium text-neutral-900">{it.title}</p>
-            <p className="text-sm text-neutral-600">{it.time}</p>
-            {it.description && <p className="text-xs text-neutral-500">{it.description}</p>}
+        {bookings.map((b) => (
+          <li key={b.id} className="p-3 border border-neutral-200 rounded-lg">
+            <p className="font-medium text-neutral-900">{b.name}</p>
+            <p className="text-sm text-neutral-600">
+              {b.startTime} - {b.endTime}
+            </p>
+            <p className="text-xs text-neutral-500">{b.department}</p>
           </li>
         ))}
       </ul>
-    </section>
-  );
-};
+    )}
+  </section>
+);
 
 export default Agenda;

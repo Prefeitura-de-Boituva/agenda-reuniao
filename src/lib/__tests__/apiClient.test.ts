@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { cancelarAgendamento, ApiError } from "../apiClient";
+import { cancelarAgendamento, editarAgendamento, ApiError } from "../apiClient";
 
 describe("cancelarAgendamento", () => {
   afterEach(() => {
@@ -60,5 +60,51 @@ describe("cancelarAgendamento", () => {
     const erro = await cancelarAgendamento("abc-123", "Errado").catch((e) => e);
     expect(erro).toBeInstanceOf(ApiError);
     expect(erro.status).toBe(403);
+  });
+});
+
+describe("editarAgendamento", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const dados = {
+    nome: "Reunião remarcada",
+    departamento: "Chefia de Gabinete",
+    horaInicio: "14:00",
+    horaFim: "15:30",
+  };
+
+  it("chama PUT /api/agendamentos/[id] com os campos editáveis", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ id: "abc-123", ...dados }), { status: 200 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultado = await editarAgendamento("abc-123", dados);
+
+    expect(resultado.horaInicio).toBe("14:00");
+    const [url, options] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/agendamentos/abc-123");
+    expect(options.method).toBe("PUT");
+    expect(JSON.parse(String(options.body))).toEqual(dados);
+  });
+
+  it("lança ApiError com a mensagem do servidor quando há conflito", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ error: "Horário conflita com agendamento existente" }),
+            { status: 409 }
+          )
+      )
+    );
+
+    await expect(editarAgendamento("abc-123", dados)).rejects.toMatchObject({
+      status: 409,
+      message: "Horário conflita com agendamento existente",
+    });
   });
 });

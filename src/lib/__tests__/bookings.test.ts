@@ -65,18 +65,16 @@ describe("fetchBookings", () => {
     ]);
   });
 
-  it("devolve lista vazia para a data quando a API responde erro", async () => {
+  it("lança erro quando a API responde erro, para o chamador não exibir zero", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response("{\"error\":\"...\"}", { status: 500 }))
     );
 
-    const resultado = await fetchBookings("sala-azul", ["2026-09-20"]);
-
-    expect(resultado["2026-09-20"]).toEqual([]);
+    await expect(fetchBookings("sala-azul", ["2026-09-20"])).rejects.toThrow(/500/);
   });
 
-  it("devolve lista vazia quando a requisição falha (erro de rede)", async () => {
+  it("lança erro quando a requisição falha (erro de rede)", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
@@ -84,9 +82,7 @@ describe("fetchBookings", () => {
       })
     );
 
-    const resultado = await fetchBookings("sala-azul", ["2026-09-20"]);
-
-    expect(resultado["2026-09-20"]).toEqual([]);
+    await expect(fetchBookings("sala-azul", ["2026-09-20"])).rejects.toThrow("network down");
   });
 
   it("retorna objeto vazio quando a sala não existe", async () => {

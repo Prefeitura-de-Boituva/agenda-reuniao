@@ -54,9 +54,9 @@ export function CancelarAgendamentoModal({
       onConfirm(booking.id, booking.date);
       onClose();
     } catch (err) {
-      // 404 = o agendamento não existe (ou nunca existiu) no servidor — ex.:
-      // os bookings de demonstração da grade. Mantém o comportamento original:
-      // remove o agendamento da grade localmente, sem exibir erro.
+      // 404 = o agendamento não existe mais no servidor (cancelado em outra
+      // aba/sessão desde que a grade foi carregada). Mantém o comportamento
+      // original: remove o agendamento da grade localmente, sem exibir erro.
       if (err instanceof ApiError && err.status === 404) {
         onConfirm(booking.id, booking.date);
         onClose();

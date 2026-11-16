@@ -5,7 +5,8 @@ export async function temConflito(
   sala: Sala,
   data: string,
   inicio: string,
-  fim: string
+  fim: string,
+  ignorarId?: string
 ): Promise<boolean> {
   // Busca todos os agendamentos da mesma sala e data.
   // Prisma 8: `.orderBy` recebe um seletor e a coleção precisa do terminal
@@ -14,6 +15,10 @@ export async function temConflito(
     .orderBy((a) => a.horaInicio.asc())
     .all();
 
-  // Verifica se há sobreposição de horário
-  return existentes.some((ag) => inicio < ag.horaFim && fim > ag.horaInicio);
+  // `ignorarId` é a própria reserva sendo editada: sem ele, qualquer edição
+  // conflitaria com o horário que já está gravado no banco.
+  return existentes.some((ag) => {
+    if (ignorarId !== undefined && ag.id === ignorarId) return false;
+    return inicio < ag.horaFim && fim > ag.horaInicio;
+  });
 }

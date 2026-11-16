@@ -17,6 +17,10 @@ interface AgendamentoApi {
  *
  * A API filtra pelo nome da sala ("Sala Azul"), enquanto a UI usa o id/slug
  * ("sala-azul"); aqui fazemos a tradução dos dois lados.
+ *
+ * Falha de rede ou resposta de erro **lança exceção**: devolver lista vazia no
+ * lugar fazia a tela inicial mostrar "0 reuniões" quando o banco estava fora do
+ * ar, indistinguível de um dia realmente livre. Quem chama decide como exibir.
  */
 export async function fetchBookings(
   roomId: string,
@@ -36,25 +40,23 @@ export async function fetchBookings(
 
 async function buscarPorData(sala: string, data: string): Promise<Booking[]> {
   const url = `/api/agendamentos?sala=${encodeURIComponent(sala)}&data=${encodeURIComponent(data)}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return [];
-
-    const agendamentos = (await res.json()) as AgendamentoApi[];
-    return agendamentos
-      .map((a) => ({
-        id: a.id,
-        roomId: roomIdPorNome(a.sala),
-        date: a.data,
-        name: a.nome,
-        department: a.departamento,
-        startTime: a.horaInicio,
-        endTime: a.horaFim,
-      }))
-      .sort((a, b) => a.startTime.localeCompare(b.startTime));
-  } catch {
-    return [];
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`A busca de agendamentos de ${sala} em ${data} falhou (${res.status}).`);
   }
+
+  const agendamentos = (await res.json()) as AgendamentoApi[];
+  return agendamentos
+    .map((a) => ({
+      id: a.id,
+      roomId: roomIdPorNome(a.sala),
+      date: a.data,
+      name: a.nome,
+      department: a.departamento,
+      startTime: a.horaInicio,
+      endTime: a.horaFim,
+    }))
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
 }
 
 function roomIdPorNome(sala: string): string {
