@@ -8,7 +8,11 @@ import {
   Input,
   Button,
 } from "@/components/ui";
-import { DEPARTAMENTOS, SALAS } from "@/lib/agendamentoOpcoes";
+import {
+  DEPARTAMENTOS,
+  SALAS,
+  salaPermitePrioridadeZero,
+} from "@/lib/agendamentoOpcoes";
 import { fetchBookings } from "@/lib/bookings";
 import { ROOMS } from "@/lib/rooms";
 import { findBookingConflict, toISODate } from "@/lib/schedule";
@@ -193,6 +197,17 @@ export function NovoAgendamentoModal({
                 ))}
               </select>
             </div>
+
+            {salaPermitePrioridadeZero(sala) && (
+              <div
+                role="status"
+                className="rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-tiny text-warning-700"
+              >
+                <span className="font-medium">Aviso de prioridade.</span> Esta sala atende as
+                reuniões do Gabinete do Prefeito, que têm precedência sobre os demais agendamentos.
+                Se o seu horário for requisitado, combine a nova data diretamente com o Gabinete.
+              </div>
+            )}
 
             <Input
               label="Data"
