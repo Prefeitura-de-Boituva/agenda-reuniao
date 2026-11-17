@@ -35,3 +35,14 @@ export function isSalaValida(valor: string): valor is Sala {
 export function isDepartamentoValido(valor: string): valor is Departamento {
   return (DEPARTAMENTOS as readonly string[]).includes(valor);
 }
+
+/**
+ * Salas onde o Gabinete do Prefeito pode requisitar horário com prioridade
+ * (issue #66). Para incluir outra sala, basta adicionar o nome aqui — o aviso
+ * do formulário e qualquer checagem futura leem desta lista.
+ */
+export const SALAS_COM_PRIORIDADE_ZERO: readonly Sala[] = ["Sala Azul"];
+
+export function salaPermitePrioridadeZero(valor: string): valor is Sala {
+  return SALAS_COM_PRIORIDADE_ZERO.includes(valor as Sala);
+}
