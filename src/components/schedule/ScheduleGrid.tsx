@@ -20,6 +20,7 @@ import { CancelarAgendamentoModal } from "./CancelarAgendamentoModal";
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Toast } from "@/components/ui";
 import { getSlotError, isPastToday, isSlotValido } from "@/lib/validations";
 import { ApiError, editarAgendamento } from "@/lib/apiClient";
+import { usePapel } from "@/lib/use-papel";
 import { cn } from "@/lib/utils";
 
 function computeEndTime(startTime: string, durationBlocks: number): string {
@@ -37,6 +38,43 @@ function computeEndTime(startTime: string, durationBlocks: number): string {
 
 const SELECT_CLASSES =
   "flex h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-body text-neutral-900 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:outline-none";
+
+const MARCADOR_CLASSES =
+  "rounded px-1 py-px text-[9px] font-semibold uppercase leading-tight";
+
+/**
+ * Destaques da issue #66: "Prefeito" marca a reserva criada com Prioridade 0 e
+ * "em conflito" avisa que o bloco tem mais de uma reserva — a original foi
+ * sobreposta, não apagada.
+ */
+function MarcadoresSlot({ slot }: { slot: TimeSlot }) {
+  const prioridadeZero = slot.booking?.prioridade === "PREFEITO";
+  const sobreposto = slot.bookings.length > 1;
+  if (!prioridadeZero && !sobreposto) return null;
+
+  return (
+    <span className="flex shrink-0 flex-col items-end gap-0.5">
+      {prioridadeZero && (
+        <span
+          className={cn(MARCADOR_CLASSES, "bg-primary-600 text-white")}
+          title="Reserva com Prioridade 0 do Gabinete do Prefeito"
+        >
+          Prefeito
+        </span>
+      )}
+      {sobreposto && (
+        <span
+          className={cn(MARCADOR_CLASSES, "bg-warning-200 text-warning-700")}
+          title={`Mais de uma reserva neste horário: ${slot.bookings
+            .map((b) => `${b.name} (${b.department})`)
+            .join("; ")}`}
+        >
+          em conflito
+        </span>
+      )}
+    </span>
+  );
+}
 
 interface BookingFormModalProps {
   mode: "create" | "edit";
@@ -258,6 +296,8 @@ export function ScheduleGrid({
   const [notice, setNotice] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  // Papel da sessão: decide se o modal de criação mostra a Prioridade 0.
+  const papel = usePapel();
 
   useEffect(() => {
     if (!notice) return;
@@ -440,10 +480,13 @@ export function ScheduleGrid({
                             <span>{slot.startTime}</span><span className="text-tiny font-normal">{slot.endTime}</span>
                           </span>
                           {booking ? (
-                            <span className="flex min-w-0 flex-1 flex-col overflow-hidden leading-tight">
-                              <span className="truncate text-caption font-medium" title={booking.name}>{booking.name}</span>
-                              <span className="truncate text-tiny" title={booking.department}>{booking.department}</span>
-                            </span>
+                            <>
+                              <span className="flex min-w-0 flex-1 flex-col overflow-hidden leading-tight">
+                                <span className="truncate text-caption font-medium" title={booking.name}>{booking.name}</span>
+                                <span className="truncate text-tiny" title={booking.department}>{booking.department}</span>
+                              </span>
+                              <MarcadoresSlot slot={slot} />
+                            </>
                           ) : <span className="ml-auto shrink-0 text-caption font-semibold">LIVRE</span>}
                         </button>
                       </li>
@@ -552,6 +595,7 @@ export function ScheduleGrid({
                                 <span className="truncate font-medium">{slot.booking.name}</span>
                                 <span className="truncate">{slot.booking.department}</span>
                               </span>
+                              <MarcadoresSlot slot={slot} />
                               <span className="flex shrink-0 items-center gap-0 sm:gap-1">
                                 <button
                                   onClick={(e) => {
@@ -599,6 +643,14 @@ export function ScheduleGrid({
           <span className="size-3 rounded-full bg-danger-500" />
           <span className="text-tiny text-neutral-600">Ocupado</span>
         </div>
+        <div className="flex items-center gap-1.5">
+          <span className={cn(MARCADOR_CLASSES, "bg-primary-600 text-white")}>Prefeito</span>
+          <span className="text-tiny text-neutral-600">Prioridade 0</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className={cn(MARCADOR_CLASSES, "bg-warning-200 text-warning-700")}>em conflito</span>
+          <span className="text-tiny text-neutral-600">Horário sobreposto</span>
+        </div>
       </div>
 
       {createTarget && (
@@ -622,6 +674,7 @@ export function ScheduleGrid({
                   data: data.data,
                   horaInicio: data.inicio,
                   horaFim: data.fim,
+                  prioridade: data.prioridade,
                 }),
               });
               if (!res.ok) {
@@ -646,10 +699,20 @@ export function ScheduleGrid({
                 endTime: data.fim,
                 name: data.nome,
                 department: data.departamento,
+                prioridade: data.prioridade,
               });
               setCreateTarget(null);
               setCreateError(null);
-              setNotice('Sua reunião foi agendada!');
+              // A resposta traz as reservas sobrepostas: quem criou precisa ver
+              // que elas continuam valendo e que os departamentos serão avisados.
+              const afetadas = Array.isArray(created.reservasConflitadas)
+                ? created.reservasConflitadas.length
+                : 0;
+              setNotice(
+                afetadas > 0
+                  ? `Reunião agendada com Prioridade 0. ${afetadas} agendamento(s) sobreposto(s) serão avisados para remarcar.`
+                  : 'Sua reunião foi agendada!'
+              );
               return true;
                 } catch (e) {
                   setCreateError('Erro ao criar agendamento.');
@@ -663,6 +726,7 @@ export function ScheduleGrid({
           horarioInicial={createTarget.startTime}
           existingBookings={bookings[createTarget.date] ?? []}
           externalError={createError}
+          papel={papel}
         />
       )}
       {editTarget && (

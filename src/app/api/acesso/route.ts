@@ -4,9 +4,16 @@ import {
   COOKIE_ACESSO,
   DURACAO_ACESSO_SEGUNDOS,
   acessoConfigurado,
-  senhaCorreta,
+  papelDaSenha,
+  papelDoToken,
   tokenParaSenha,
 } from "@/lib/acesso";
+
+/** Papel da sessão atual, para o front condicionar o controle de Prioridade 0. */
+export async function GET() {
+  const cookieStore = await cookies();
+  return Response.json({ papel: papelDoToken(cookieStore.get(COOKIE_ACESSO)?.value) ?? "NORMAL" });
+}
 
 export async function POST(request: Request) {
   if (!acessoConfigurado()) {
@@ -28,7 +35,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "Informe a senha do grupo." }, { status: 400 });
   }
 
-  if (!senhaCorreta(senha)) {
+  const papel = papelDaSenha(senha);
+  if (!papel) {
     return Response.json({ error: "Senha incorreta." }, { status: 401 });
   }
 
@@ -44,7 +52,7 @@ export async function POST(request: Request) {
     maxAge: DURACAO_ACESSO_SEGUNDOS,
   });
 
-  return Response.json({ ok: true });
+  return Response.json({ ok: true, papel });
 }
 
 export async function DELETE() {

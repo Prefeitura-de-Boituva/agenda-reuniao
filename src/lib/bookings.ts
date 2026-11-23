@@ -1,4 +1,4 @@
-import type { Booking } from "@/types/schedule";
+import type { Booking, Prioridade } from "@/types/schedule";
 import { ROOMS } from "@/lib/rooms";
 
 interface AgendamentoApi {
@@ -9,6 +9,12 @@ interface AgendamentoApi {
   data: string;
   horaInicio: string;
   horaFim: string;
+  prioridade?: string;
+}
+
+/** Qualquer valor que não seja "PREFEITO" é tratado como reserva normal. */
+function prioridadeDe(valor: string | undefined): Prioridade {
+  return valor === "PREFEITO" ? "PREFEITO" : "NORMAL";
 }
 
 /**
@@ -55,6 +61,7 @@ async function buscarPorData(sala: string, data: string): Promise<Booking[]> {
       department: a.departamento,
       startTime: a.horaInicio,
       endTime: a.horaFim,
+      prioridade: prioridadeDe(a.prioridade),
     }))
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 }

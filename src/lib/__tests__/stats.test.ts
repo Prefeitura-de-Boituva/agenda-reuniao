@@ -15,6 +15,7 @@ const booking = (overrides: Partial<Booking>): Booking => ({
   department: "Chefia de Gabinete",
   startTime: "09:00",
   endTime: "10:00",
+  prioridade: "NORMAL",
   ...overrides,
 });
 

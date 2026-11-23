@@ -5,8 +5,9 @@
  * o driver embute o erro do Postgres como `cause` do `SqlQueryError`.
  */
 
-/** SQLSTATE padrão de `unique_violation`, normalizada pelo driver. */
+/** SQLSTATE de `unique_violation` e `exclusion_violation`, ambos conflito de horário. */
 const SQLSTATE_UNIQUE_VIOLATION = '23505';
+const SQLSTATE_EXCLUSION_VIOLATION = '23P01';
 
 /** Profundidade máxima da cadeia de `cause` inspectada, para não laçar em ciclos. */
 const PROFUNDIDADE_MAXIMA = 6;
@@ -15,14 +16,16 @@ export type CategoriaErroDb = 'conflito' | 'config' | 'infra';
 
 export const MSG_CONFLITO_HORARIO = 'Horário conflita com agendamento existente';
 
-function ehViolacaoDeUnique(erro: unknown): boolean {
+function ehViolacaoDeConflito(erro: unknown): boolean {
   let atual: unknown = erro;
 
   for (let profundidade = 0; atual && profundidade < PROFUNDIDADE_MAXIMA; profundidade += 1) {
     const candidatos = atual as { sqlState?: unknown; code?: unknown; cause?: unknown };
     if (
       candidatos.sqlState === SQLSTATE_UNIQUE_VIOLATION ||
-      candidatos.code === SQLSTATE_UNIQUE_VIOLATION
+      candidatos.code === SQLSTATE_UNIQUE_VIOLATION ||
+      candidatos.sqlState === SQLSTATE_EXCLUSION_VIOLATION ||
+      candidatos.code === SQLSTATE_EXCLUSION_VIOLATION
     ) {
       return true;
     }
@@ -33,7 +36,7 @@ function ehViolacaoDeUnique(erro: unknown): boolean {
 }
 
 export function categorizarErroDb(erro: unknown): CategoriaErroDb {
-  if (ehViolacaoDeUnique(erro)) return 'conflito';
+  if (ehViolacaoDeConflito(erro)) return 'conflito';
   // O client do Prisma 8 lança lazy: sem DATABASE_URL a falha chega como um
   // erro de leitura de marker, sem relação óbvia com a causa real. Checar a
   // variável aqui é o que permite dar um diagnóstico claro em vez de

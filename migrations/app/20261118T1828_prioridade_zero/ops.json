@@ -1,0 +1,235 @@
+[
+  {
+    "id": "rawSql.extension.btree_gist",
+    "label": "Install extension \"btree_gist\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "dependency",
+        "name": "btree_gist"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Enable equality operators for text and date in GiST exclusion constraints",
+        "sql": "CREATE EXTENSION IF NOT EXISTS \"btree_gist\""
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "dropConstraint.agendamento.agendamento_sala_data_horaInicio_key",
+    "label": "Drop constraint \"agendamento_sala_data_horaInicio_key\" on \"agendamento\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "agendamento_sala_data_horaInicio_key",
+        "table": "agendamento"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"agendamento_sala_data_horaInicio_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agendamento_sala_data_horaInicio_key",
+          "public",
+          "\"public\".\"agendamento\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop constraint \"agendamento_sala_data_horaInicio_key\"",
+        "sql": "ALTER TABLE \"public\".\"agendamento\" DROP CONSTRAINT \"agendamento_sala_data_horaInicio_key\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"agendamento_sala_data_horaInicio_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agendamento_sala_data_horaInicio_key",
+          "public",
+          "\"public\".\"agendamento\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.agendamento.prioridade",
+    "label": "Add column \"prioridade\" to \"agendamento\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "prioridade",
+        "table": "agendamento"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"prioridade\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "agendamento",
+          "prioridade"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"prioridade\"",
+        "sql": "ALTER TABLE \"public\".\"agendamento\" ADD COLUMN \"prioridade\" text DEFAULT 'NORMAL' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"prioridade\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "agendamento",
+          "prioridade"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "checkConstraint.agendamento.agendamento_prioridade_check_463c2d12",
+    "label": "Add check constraint \"agendamento_prioridade_check_463c2d12\" on \"agendamento\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "checkConstraint",
+        "name": "agendamento_prioridade_check_463c2d12",
+        "table": "agendamento"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"agendamento_prioridade_check_463c2d12\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agendamento_prioridade_check_463c2d12",
+          "public",
+          "\"public\".\"agendamento\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add check constraint \"agendamento_prioridade_check_463c2d12\"",
+        "sql": "ALTER TABLE \"public\".\"agendamento\" ADD CONSTRAINT \"agendamento_prioridade_check_463c2d12\" CHECK (\"prioridade\" IN ('NORMAL', 'PREFEITO'))"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"agendamento_prioridade_check_463c2d12\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agendamento_prioridade_check_463c2d12",
+          "public",
+          "\"public\".\"agendamento\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.agendamento.agendamento_sala_data_horaInicio_prioridade_key",
+    "label": "Add unique constraint on \"agendamento\" (sala, data, horaInicio, prioridade)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "agendamento_sala_data_horaInicio_prioridade_key",
+        "table": "agendamento"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"agendamento_sala_data_horaInicio_prioridade_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agendamento_sala_data_horaInicio_prioridade_key",
+          "public",
+          "\"public\".\"agendamento\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"agendamento_sala_data_horaInicio_prioridade_key\"",
+        "sql": "ALTER TABLE \"public\".\"agendamento\" ADD CONSTRAINT \"agendamento_sala_data_horaInicio_prioridade_key\" UNIQUE (\"sala\", \"data\", \"horaInicio\", \"prioridade\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"agendamento_sala_data_horaInicio_prioridade_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agendamento_sala_data_horaInicio_prioridade_key",
+          "public",
+          "\"public\".\"agendamento\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "rawSql.agendamento.agendamento_sem_sobreposicao_normal",
+    "label": "Add overlap exclusion constraint \"agendamento_sem_sobreposicao_normal\" on \"agendamento\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "agendamento_sem_sobreposicao_normal",
+        "table": "agendamento"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Block overlapping NORMAL bookings in the same room and date",
+        "sql": "ALTER TABLE \"public\".\"agendamento\" ADD CONSTRAINT \"agendamento_sem_sobreposicao_normal\" EXCLUDE USING gist (\"sala\" WITH =, \"data\" WITH =, numrange((split_part(\"horaInicio\", ':', 1)::int * 60 + split_part(\"horaInicio\", ':', 2)::int), (split_part(\"horaFim\", ':', 1)::int * 60 + split_part(\"horaFim\", ':', 2)::int), '[)') WITH &&) WHERE (\"prioridade\" = 'NORMAL')"
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "rawSql.agendamento.agendamento_sem_sobreposicao_prefeito",
+    "label": "Add overlap exclusion constraint \"agendamento_sem_sobreposicao_prefeito\" on \"agendamento\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "agendamento_sem_sobreposicao_prefeito",
+        "table": "agendamento"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Block overlapping PREFEITO bookings in the same room and date",
+        "sql": "ALTER TABLE \"public\".\"agendamento\" ADD CONSTRAINT \"agendamento_sem_sobreposicao_prefeito\" EXCLUDE USING gist (\"sala\" WITH =, \"data\" WITH =, numrange((split_part(\"horaInicio\", ':', 1)::int * 60 + split_part(\"horaInicio\", ':', 2)::int), (split_part(\"horaFim\", ':', 1)::int * 60 + split_part(\"horaFim\", ':', 2)::int), '[)') WITH &&) WHERE (\"prioridade\" = 'PREFEITO')"
+      }
+    ],
+    "postcheck": []
+  }
+]

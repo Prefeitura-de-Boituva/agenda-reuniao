@@ -4,6 +4,9 @@ import {
   acessoConfigurado,
   acessoExigido,
   destinoAposLogin,
+  papelDaSenha,
+  papelDoToken,
+  permitePrioridadeZero,
   senhaCorreta,
   tokenParaSenha,
   tokenValido,
@@ -42,6 +45,59 @@ describe("token de acesso", () => {
     expect(acessoConfigurado()).toBe(false);
     expect(tokenValido(tokenParaSenha("qualquer"))).toBe(false);
     expect(senhaCorreta("qualquer")).toBe(false);
+  });
+});
+
+describe("papel do acesso (issue #66)", () => {
+  it("a senha do grupo vale NORMAL e a do Gabinete vale PREFEITO", () => {
+    vi.stubEnv("ACCESS_PASSWORD", "senha-do-grupo");
+    vi.stubEnv("ACCESS_PASSWORD_PREFEITO", "senha-do-gabinete");
+
+    expect(papelDaSenha("senha-do-grupo")).toBe("NORMAL");
+    expect(papelDaSenha("senha-do-gabinete")).toBe("PREFEITO");
+    expect(papelDaSenha("outra")).toBeNull();
+
+    expect(papelDoToken(tokenParaSenha("senha-do-gabinete"))).toBe("PREFEITO");
+    expect(papelDoToken(tokenParaSenha("senha-do-grupo"))).toBe("NORMAL");
+    expect(papelDoToken(undefined)).toBeNull();
+    expect(papelDoToken("token-adulterado")).toBeNull();
+  });
+
+  it("o token do Gabinete também passa pela porta de entrada", () => {
+    vi.stubEnv("ACCESS_PASSWORD", "senha-do-grupo");
+    vi.stubEnv("ACCESS_PASSWORD_PREFEITO", "senha-do-gabinete");
+
+    expect(tokenValido(tokenParaSenha("senha-do-gabinete"))).toBe(true);
+  });
+
+  it("senhas iguais não promovem ninguém a PREFEITO", () => {
+    vi.stubEnv("ACCESS_PASSWORD", "mesma-senha");
+    vi.stubEnv("ACCESS_PASSWORD_PREFEITO", "mesma-senha");
+
+    expect(papelDaSenha("mesma-senha")).toBe("NORMAL");
+  });
+
+  it("sem a senha do Gabinete ninguém é PREFEITO", () => {
+    vi.stubEnv("ACCESS_PASSWORD", "senha-do-grupo");
+    vi.stubEnv("ACCESS_PASSWORD_PREFEITO", "");
+
+    expect(papelDoToken(tokenParaSenha("senha-do-grupo"))).toBe("NORMAL");
+    expect(papelDaSenha("senha-do-grupo")).toBe("NORMAL");
+  });
+
+  it("só PREFEITO pode Prioridade 0", () => {
+    expect(permitePrioridadeZero("PREFEITO")).toBe(true);
+    expect(permitePrioridadeZero("NORMAL")).toBe(false);
+    expect(permitePrioridadeZero(null)).toBe(false);
+  });
+
+  it("somente a senha do Gabinete já configura e exige o acesso", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("ACCESS_PASSWORD", "");
+    vi.stubEnv("ACCESS_PASSWORD_PREFEITO", "senha-do-gabinete");
+
+    expect(acessoConfigurado()).toBe(true);
+    expect(acessoExigido()).toBe(true);
   });
 });
 

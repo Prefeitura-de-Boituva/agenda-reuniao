@@ -32,6 +32,9 @@ services:
       # `/entrar` e o login responde 503. Exigir aqui faz o compose falhar antes
       # de publicar uma agenda inutilizável.
       ACCESS_PASSWORD: ${ACCESS_PASSWORD:?Defina ACCESS_PASSWORD (senha compartilhada do grupo)}
+      # Opcional: dá o papel PREFEITO, o único que cria agendamento com
+      # Prioridade 0 (issue #66). Sem ela o controle não aparece para ninguém.
+      ACCESS_PASSWORD_PREFEITO: ${ACCESS_PASSWORD_PREFEITO:-}
     init: true
     stop_grace_period: 30s
     restart: unless-stopped

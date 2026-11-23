@@ -19,6 +19,14 @@ enum Sala {
   SALA_3 = "Sala Amarela"
 }
 
+// `PREFEITO` é a "Prioridade 0" da issue #66: permite sobrepor uma reserva já
+// existente, desde que o papel do usuário e a sala autorizem (regra no endpoint).
+enum Prioridade {
+  @@type("pg/text@1")
+  NORMAL
+  PREFEITO
+}
+
 model Agendamento {
   id           String       @id @default(uuid())
   nome         String
@@ -28,6 +36,10 @@ model Agendamento {
   horaInicio   VarChar(5)
   horaFim      VarChar(5)
   criadoEm     TimestamptzString @default(now())
+  prioridade   Prioridade   @default(NORMAL)
 
-  @@unique([sala, data, horaInicio])
+  // `prioridade` entra na chave para que uma reserva NORMAL e uma PREFEITO
+  // possam coexistir no mesmo horário (a sobreposição controlada da issue #66).
+  // Duplicatas da mesma prioridade continuam bloqueadas no banco.
+  @@unique([sala, data, horaInicio, prioridade])
 }

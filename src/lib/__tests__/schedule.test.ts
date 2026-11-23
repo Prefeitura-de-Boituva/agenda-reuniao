@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLOSING_HOUR, OPENING_HOUR, SLOT_MINUTES, findBookingConflict, generateTimeSlots, getBookingStatus } from "@/lib/schedule";
+import { CLOSING_HOUR, OPENING_HOUR, SLOT_MINUTES, findBookingConflict, generateTimeSlots, getBookingStatus, listBookingConflicts } from "@/lib/schedule";
 import { isSlotValido, timeToMinutes } from "@/lib/validations";
 import type { Booking } from "@/types/schedule";
 
@@ -70,6 +70,7 @@ describe("getBookingStatus com a grade de 30 minutos", () => {
     department: "TI",
     startTime: "10:00",
     endTime: "10:30",
+    prioridade: "NORMAL",
   };
   const bookings = [booking];
 
@@ -90,6 +91,35 @@ describe("getBookingStatus com a grade de 30 minutos", () => {
       getBookingStatus("2026-09-30", "09:30", "10:00", bookings).status
     ).toBe("available");
   });
+
+  it("slot livre devolve lista vazia", () => {
+    expect(getBookingStatus("2026-09-30", "09:30", "10:00", bookings).bookings).toEqual([]);
+  });
+
+  // Issue #66: a Prioridade 0 não apaga a reserva existente, então o mesmo bloco
+  // da grade passa a ter duas reservas — a célula precisa das duas.
+  it("devolve as duas reservas quando uma Prioridade 0 sobrepõe a normal", () => {
+    const prefeito: Booking = {
+      ...booking,
+      id: "p1",
+      name: "Reunião do Prefeito",
+      prioridade: "PREFEITO",
+    };
+
+    const resultado = getBookingStatus("2026-09-30", "10:00", "10:30", [booking, prefeito]);
+
+    expect(resultado.status).toBe("booked");
+    expect(resultado.bookings.map((b) => b.id)).toEqual(["b1", "p1"]);
+    expect(resultado.booking?.id).toBe("p1");
+  });
+
+  it("sem Prioridade 0 a reserva exibida é a primeira do bloco", () => {
+    const outra: Booking = { ...booking, id: "b2" };
+
+    const resultado = getBookingStatus("2026-09-30", "10:00", "10:30", [outra, booking]);
+
+    expect(resultado.booking?.id).toBe("b2");
+  });
 });
 
 describe("findBookingConflict", () => {
@@ -101,6 +131,7 @@ describe("findBookingConflict", () => {
     department: "TI",
     startTime: "10:00",
     endTime: "11:00",
+    prioridade: "NORMAL",
   };
   const bookings = [booking];
 
@@ -138,5 +169,36 @@ describe("findBookingConflict", () => {
   it("devolve o primeiro agendamento conflitante", () => {
     const outro: Booking = { ...booking, id: "b2", startTime: "10:30", endTime: "12:00" };
     expect(findBookingConflict("10:00", "12:00", [outro, booking])).toBe(outro);
+  });
+});
+
+describe("listBookingConflicts", () => {
+  const das10: Booking = {
+    id: "b1",
+    roomId: "sala-azul",
+    date: "2026-09-30",
+    name: "Reunião",
+    department: "TI",
+    startTime: "10:00",
+    endTime: "11:00",
+    prioridade: "NORMAL",
+  };
+  const das1030: Booking = { ...das10, id: "b2", startTime: "10:30", endTime: "12:00" };
+
+  it("devolve todos os agendamentos sobrepostos, não só o primeiro", () => {
+    expect(listBookingConflicts("10:00", "12:00", [das10, das1030]).map((b) => b.id)).toEqual([
+      "b1",
+      "b2",
+    ]);
+  });
+
+  it("não inclui blocos adjacentes", () => {
+    expect(listBookingConflicts("11:00", "12:00", [das10])).toEqual([]);
+  });
+
+  it("ignora o próprio agendamento em edições", () => {
+    expect(listBookingConflicts("10:00", "12:00", [das10, das1030], "b1").map((b) => b.id)).toEqual([
+      "b2",
+    ]);
   });
 });

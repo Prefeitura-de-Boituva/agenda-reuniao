@@ -89,30 +89,51 @@ export function getWeekDates(startDate: Date): Date[] {
   return dates;
 }
 
+/**
+ * Um bloco pode ter **mais de uma** reserva: a Prioridade 0 da issue #66 permite
+ * que uma reunião do Gabinete coexista com a reserva normal do mesmo horário.
+ * `bookings` traz todas; `booking` é a que a célula exibe — a de Prioridade 0
+ * quando existe, porque é ela que passa a valer no horário.
+ */
 export function getBookingStatus(
   date: string,
   startTime: string,
   endTime: string,
   bookings: Booking[]
-): { status: SlotStatus; booking?: Booking } {
-  const booking = bookings.find((b) => b.startTime <= startTime && b.endTime >= endTime);
-  if (booking) return { status: "booked", booking };
-  return { status: "available" };
+): { status: SlotStatus; booking?: Booking; bookings: Booking[] } {
+  const queCobrem = bookings.filter(
+    (b) => b.startTime <= startTime && b.endTime >= endTime
+  );
+  if (queCobrem.length === 0) return { status: "available", bookings: [] };
+  const principal =
+    queCobrem.find((b) => b.prioridade === "PREFEITO") ?? queCobrem[0];
+  return { status: "booked", booking: principal, bookings: queCobrem };
 }
 
 /**
- * Mesma regra de sobreposição de `temConflito` (src/lib/conflict.ts) e do
+ * Mesma regra de sobreposição de `buscarConflitos` (src/lib/conflict.ts) e do
  * BookingFormModal: dois intervalos conflitam quando `startTime < b.endTime &&
  * b.startTime < endTime`. Blocos adjacentes (10:00–10:30 vs 10:30–11:00) não
  * conflitam. `ignoreId` exclui o próprio agendamento em edições.
  */
+export function listBookingConflicts(
+  startTime: string,
+  endTime: string,
+  bookings: Booking[],
+  ignoreId?: string
+): Booking[] {
+  return bookings.filter(
+    (b) => b.id !== ignoreId && b.startTime < endTime && startTime < b.endTime
+  );
+}
+
 export function findBookingConflict(
   startTime: string,
   endTime: string,
   bookings: Booking[],
   ignoreId?: string
 ): Booking | undefined {
-  return bookings.find((b) => b.id !== ignoreId && b.startTime < endTime && startTime < b.endTime);
+  return listBookingConflicts(startTime, endTime, bookings, ignoreId)[0];
 }
 
 export function buildRoomSchedule(
@@ -126,10 +147,15 @@ export function buildRoomSchedule(
   const slotsByDate: Record<string, TimeSlot[]> = {};
 
   for (const date of dates) {
-    const bookings = getBookingsForDate(date);
+    const bookingsDoDia = getBookingsForDate(date);
     slotsByDate[date] = rawSlots.map((slot) => {
-      const { status, booking } = getBookingStatus(date, slot.startTime, slot.endTime, bookings);
-      return { ...slot, status, booking };
+      const { status, booking, bookings } = getBookingStatus(
+        date,
+        slot.startTime,
+        slot.endTime,
+        bookingsDoDia
+      );
+      return { ...slot, status, booking, bookings };
     });
   }
 

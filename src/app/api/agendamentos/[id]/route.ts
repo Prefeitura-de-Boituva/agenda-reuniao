@@ -169,9 +169,8 @@ export async function PUT(
 
     return Response.json(atualizado ?? { ...agendamento, ...dados }, { status: 200 });
   } catch (erro) {
-    // Duas edições simultâneas podem passar juntas pelo `temConflito`; a
-    // constraint `@@unique([sala, data, horaInicio])` decide o perdedor, que
-    // responde 409 em vez de 500.
+    // Duas edições simultâneas podem passar juntas pelo `temConflito`; a unique
+    // e as exclusion constraints decidem o perdedor, que responde 409 em vez de 500.
     if (categorizarErroDb(erro) === 'conflito') {
       return Response.json({ error: MSG_CONFLITO_HORARIO }, { status: 409 });
     }

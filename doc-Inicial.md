@@ -122,3 +122,73 @@
 - `src/lib/__tests__/validations.test.ts`: casos unitários de `isDataPassada` (ontem, hoje, amanhã, virada de mês/ano e formato inválido).
 - `src/lib/__tests__/criar-agendamento.test.ts`: relógio congelado para manter as fixtures determinísticas e cenários de data passada, hoje e amanhã.
 - `cypress/e2e/data-passada.cy.ts`: API (400), `min` do date picker e bloqueio de abertura do modal na grade.
+
+---
+
+# RN17 – Bloqueio de horários já agendados na criação
+
+**Regra de negócio**
+
+- Ao criar um agendamento, cada horário que se sobrepõe a uma reserva já existente da sala e do dia escolhidos é apresentado como **indisponível**. O usuário não precisa tentar salvar para descobrir o conflito (issue #62).
+- A sobreposição é a mesma condição da **RN13** (`inicio < ag.horaFim && fim > ag.horaInicio`), portanto reservas consecutivas continuam liberadas.
+- A marcação na interface é orientação; a referência continua sendo o servidor, que responde `409` com `"Horário conflita com agendamento existente"`.
+
+**Implementação**
+
+- **Modal** (`src/components/schedule/NovoAgendamentoModal.tsx`): recebe `existingBookings` do `ScheduleGrid` (seed imediato) e revalida contra o servidor com `fetchBookings(roomId, [data])` sempre que **sala ou data** mudam. Os `<option>` dos dois selects usam `findBookingConflict` para ficar `disabled`, com `opacity-50 cursor-not-allowed`, `title` ("Horário já agendado por {nome} — {departamento}") e rótulo `(Ocupado)`.
+- **Função compartilhada** (`src/lib/schedule.ts`): `findBookingConflict(inicio, fim, bookings, ignorarId?)` é a mesma que o `BookingFormModal` usa na edição, passando o id da própria reserva para não conflitar consigo mesma.
+- **Botão**: desabilitado durante a verificação de disponibilidade e quando a combinação início→fim conflita; `validar()` repete a checagem para o submit implícito (Enter).
+- **Decisão registrada**: as opções ocupadas ficam **visíveis e desabilitadas**, e não filtradas da lista — ocultá-las deixaria buracos na sequência de horários sem explicação. A edição segue a estratégia oposta (filtrar durações) porque lá o seletor é de blocos, não de horários.
+
+**Critérios de aceite**
+
+1. O horário coberto por uma reserva existente aparece desabilitado, com `(Ocupado)` no rótulo e `title` identificando quem agendou.
+2. Horários que apenas encostam na reserva (terminam quando ela começa, ou começam quando ela termina) permanecem habilitados — RN13.
+3. Trocar a sala ou a data no modal re-sincroniza a marcação sem recarregar a página.
+4. Uma seleção que passa a conflitar exibe a mensagem explicativa abaixo dos selects e desabilita o "Confirmar".
+5. A API continua recusando a sobreposição com `409` mesmo quando a chamada não vem da interface.
+
+**Testes**
+
+- `cypress/e2e/horarios-ocupados.cy.ts`: um teste por critério; os quatro primeiros servem as reservas por stub do `GET /api/agendamentos` (não tocam o banco) e o quinto cria, tenta duplicar e limpa pelo `DELETE`.
+- `src/lib/__tests__/schedule.test.ts`: casos de `findBookingConflict` (sobreposição, adjacência, `ignorarId`).
+- `src/lib/__tests__/conflict.test.ts` e `criar-agendamento.test.ts`: `409` do servidor e a mesma recusa na rota.
+
+---
+
+# RN18 – Prioridade 0 para reuniões do Prefeito em horários já ocupados
+
+**Regra de negócio**
+
+- O Gabinete do Prefeito pode requisitar um horário **já ocupado**, desde que a sala permita. É a "Prioridade 0" da issue #66: uma exceção controlada à RN17, não uma substituição dela.
+- A reserva existente **não é apagada nem alterada**. Ela continua valendo e o departamento responsável é avisado para combinar nova data com o Gabinete. O que muda é qual das duas prevalece no horário.
+- Duas condições simultâneas autorizam a sobreposição: o **papel** de quem agenda é `PREFEITO` e a **sala** está em `SALAS_COM_PRIORIDADE_ZERO` (hoje, apenas a Sala Azul). Fora disso o bloqueio da RN17 permanece.
+- A agenda não tem identidade por usuário: o acesso é uma senha compartilhada (`src/lib/acesso.ts`). O papel vem da senha usada no login — `ACCESS_PASSWORD` vale `NORMAL`, `ACCESS_PASSWORD_PREFEITO` vale `PREFEITO`. Se as duas forem iguais, o papel resolvido é `NORMAL`, para que ninguém seja promovido por engano.
+
+**Implementação**
+
+- **Contrato** (`src/prisma/contract.prisma`): `enum Prioridade { NORMAL PREFEITO }`, campo `prioridade Prioridade @default(NORMAL)` e chave única estendida para `@@unique([sala, data, horaInicio, prioridade])`. A migração planejada em `migrations/app/20261118T1828_prioridade_zero` (**não aplicada**) também instala `btree_gist` e cria duas `EXCLUDE USING gist` parciais: uma para `NORMAL` e outra para `PREFEITO`. O banco impede sobreposição entre reservas da mesma prioridade e permite a coexistência NORMAL×PREFEITO; a rota continua impedindo que uma reserva NORMAL se sobreponha a qualquer reserva existente.
+- **Papel** (`src/lib/acesso.ts`, `src/lib/sessao.ts`, `src/app/api/acesso/route.ts`): `papelDoToken`/`papelDaSenha` resolvem o papel em tempo constante; `POST /api/acesso` devolve `{ ok, papel }` e `GET /api/acesso` informa o papel da sessão, que é o que o front usa para mostrar ou esconder o controle. `papelDaRequisicao()` lê o cookie no servidor.
+- **Servidor** (`src/app/api/agendamentos/route.ts`): `prioridade` é opcional (ausente vale `NORMAL`, valor fora do enum responde `400`). Com `PREFEITO`, a rota exige o papel (`403` `"Apenas o Gabinete do Prefeito pode criar agendamentos com Prioridade 0."`) e a sala permitida (`403` `"A {sala} não permite agendamentos com Prioridade 0."`). Só então o conflito deixa de ser `409`: `buscarConflitos` (`src/lib/conflict.ts`) devolve a lista, a criação é gravada e a resposta `201` traz `reservasConflitadas`.
+- **Auditoria e notificação** (`src/lib/prioridadeZero.ts`): toda criação com Prioridade 0 gera uma linha JSON em `console.info` com `evento`, `usuario.papel`, id do agendamento, sala, data, horários, reservas afetadas e as notificações textuais dos departamentos (com data, sala e horário). Como não há identidade por pessoa, o usuário auditado é o papel da credencial usada no login. O aviso institucional permanece no formulário e a reserva sobreposta recebe o marcador "em conflito" na grade.
+- **Modal** (`src/components/schedule/NovoAgendamentoModal.tsx`): o checkbox `Prioridade 0 (Prefeito)` só é renderizado quando o papel é `PREFEITO` **e** a sala permite — para os demais ele não existe, não fica apenas desabilitado. Ativado, os horários `(Ocupado)` voltam a ser selecionáveis (o rótulo da RN17 é mantido). Ao submeter uma sobreposição, um **segundo modal** lista as reservas afetadas e pergunta "Confirma agendamento com Prioridade 0?"; "Voltar" retorna ao formulário sem perder os dados e sem gravar. São duas confirmações: ligar o controle e confirmar no modal.
+- **Grade** (`src/components/schedule/ScheduleGrid.tsx`, `src/lib/schedule.ts`): `getBookingStatus` devolve `bookings` (todas as reservas que cobrem o bloco) além de `booking` (a exibida — a de Prioridade 0, quando existe). A célula ganha os marcadores `Prefeito` e `em conflito`, também explicados na legenda.
+
+**Critérios de aceite**
+
+1. Quem não tem o papel `PREFEITO` não vê o controle e não consegue enviá-lo: o front não renderiza e o servidor responde `403`.
+2. `PREFEITO` consegue agendar num horário ocupado de sala que permite; a reserva original continua gravada e a resposta lista as afetadas.
+3. Tentativa em sala que não permite é bloqueada com mensagem clara (`403`), e o controle nem aparece para essa sala.
+4. Valor de `prioridade` fora do enum responde `400`, antes de qualquer gravação.
+5. As reservas sobrepostas geram notificação com data, sala e horário do departamento afetado.
+6. Toda criação com Prioridade 0 é registrada em auditoria, mesmo quando não há reserva afetada.
+7. A grade destaca a reserva com Prioridade 0 (`Prefeito`) e marca o bloco com mais de uma reserva (`em conflito`).
+
+**Testes**
+
+- `src/app/api/agendamentos/__tests__/prioridade-zero.test.ts`: um caso por critério de servidor, com `@/prisma/db` e `@/lib/sessao` dublados e espionagem do `console.info` da auditoria.
+- `src/lib/__tests__/prioridade-zero.test.ts`: salas permitidas, texto da notificação e conteúdo da linha de auditoria.
+- `src/prisma/__tests__/errors.test.ts`: `23505` (unique) e `23P01` (exclusion) classificados como conflito, para responder `409` também nas corridas decididas pelo banco.
+- `src/lib/__tests__/acesso.test.ts`: resolução do papel por senha e por token, senhas iguais, ausência da senha do Gabinete.
+- `src/lib/__tests__/schedule.test.ts`: bloco com duas reservas devolve as duas e exibe a de Prioridade 0.
+- `cypress/e2e/prioridade-zero.cy.ts`: controle escondido para `NORMAL`, visível e funcional para `PREFEITO`, dupla confirmação, marcadores na grade e as recusas `403`/`400` chamando a API de verdade.

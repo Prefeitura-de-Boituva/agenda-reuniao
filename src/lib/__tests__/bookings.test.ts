@@ -51,6 +51,7 @@ describe("fetchBookings", () => {
         department: "Secretaria Municipal de Assuntos Jurídicos",
         startTime: "09:00",
         endTime: "10:00",
+        prioridade: "NORMAL",
       },
       {
         id: "abc-123",
@@ -61,8 +62,24 @@ describe("fetchBookings", () => {
           "Secretaria Municipal Fazenda, Desenvolvimento Econômico e Finanças",
         startTime: "10:30",
         endTime: "11:30",
+        prioridade: "NORMAL",
       },
     ]);
+  });
+
+  it("repasse a Prioridade 0 informada pela API", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify([{ ...agendamentoFazenda, prioridade: "PREFEITO" }]), {
+          status: 200,
+        })
+      )
+    );
+
+    const resultado = await fetchBookings("sala-azul", ["2026-09-20"]);
+
+    expect(resultado["2026-09-20"][0].prioridade).toBe("PREFEITO");
   });
 
   it("lança erro quando a API responde erro, para o chamador não exibir zero", async () => {

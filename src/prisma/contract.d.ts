@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'ca204f28bb9bd19f3bf82672d05df7c91ab78b3791253d5ea489d1901e28dfcc'>;
+  StorageHashBase<'9a35bb6c32be20950956492551fea7afc8710a9e761bcde67a060f9e69ef2572'>;
 export type ExecutionHash =
   ExecutionHashBase<'43bf20e8bf58a8241ae2535c17f7a6fa8337ffdd5c26007207045c984cb37131'>;
 export type ProfileHash =
@@ -259,6 +259,7 @@ export type FieldOutputTypes = {
       readonly horaInicio: Varchar<5>;
       readonly horaFim: Varchar<5>;
       readonly criadoEm: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly prioridade: 'NORMAL' | 'PREFEITO';
     };
   };
 };
@@ -281,6 +282,7 @@ export type FieldInputTypes = {
       readonly horaInicio: CodecTypes['sql/varchar@1']['input'];
       readonly horaFim: CodecTypes['sql/varchar@1']['input'];
       readonly criadoEm: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly prioridade: 'NORMAL' | 'PREFEITO';
     };
   };
 };
@@ -302,6 +304,7 @@ export type StorageColumnTypes = {
       readonly horaInicio: Varchar<5>;
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly nome: CodecTypes['pg/text@1']['output'];
+      readonly prioridade: 'NORMAL' | 'PREFEITO';
       readonly sala: 'Sala Azul' | 'Sala Verde' | 'Sala Amarela';
     };
   };
@@ -324,6 +327,7 @@ export type StorageColumnInputTypes = {
       readonly horaInicio: CodecTypes['sql/varchar@1']['input'];
       readonly id: CodecTypes['pg/text@1']['input'];
       readonly nome: CodecTypes['pg/text@1']['input'];
+      readonly prioridade: 'NORMAL' | 'PREFEITO';
       readonly sala: 'Sala Azul' | 'Sala Verde' | 'Sala Amarela';
     };
   };
@@ -347,6 +351,7 @@ export namespace Models {
     horaInicio: Varchar<5>;
     horaFim: Varchar<5>;
     criadoEm: CodecTypes['pg/timestamptz-string@1']['output'];
+    prioridade: 'NORMAL' | 'PREFEITO';
     readonly [RelationKeys]?: never;
   };
 }
@@ -420,9 +425,20 @@ type ContractBase = Omit<
                   readonly nullable: false;
                   readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
                 };
+                readonly prioridade: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'NORMAL'>;
+                  };
+                };
               };
               primaryKey: { readonly columns: readonly ['id'] };
-              uniques: readonly [{ readonly columns: readonly ['sala', 'data', 'horaInicio'] }];
+              uniques: readonly [
+                { readonly columns: readonly ['sala', 'data', 'horaInicio', 'prioridade'] },
+              ];
               indexes: readonly [];
               foreignKeys: readonly [];
             };
@@ -440,6 +456,10 @@ type ContractBase = Omit<
                 'Secretaria Municipal Obras Públicas',
                 'Secretaria Municipal Planejamento Urbano e Habitação',
               ];
+            };
+            readonly Prioridade: {
+              readonly kind: 'valueSet';
+              readonly values: readonly ['NORMAL', 'PREFEITO'];
             };
             readonly Sala: {
               readonly kind: 'valueSet';
@@ -510,6 +530,10 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-string@1';
                 };
               };
+              readonly prioridade: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
             };
             readonly relations: Record<string, never>;
             readonly storage: {
@@ -524,6 +548,7 @@ type ContractBase = Omit<
                 readonly horaInicio: { readonly column: 'horaInicio' };
                 readonly horaFim: { readonly column: 'horaFim' };
                 readonly criadoEm: { readonly column: 'criadoEm' };
+                readonly prioridade: { readonly column: 'prioridade' };
               };
             };
           };
@@ -569,6 +594,13 @@ type ContractBase = Omit<
               { readonly name: 'SALA_1'; readonly value: 'Sala Azul' },
               { readonly name: 'SALA_2'; readonly value: 'Sala Verde' },
               { readonly name: 'SALA_3'; readonly value: 'Sala Amarela' },
+            ];
+          };
+          readonly Prioridade: {
+            readonly codecId: 'pg/text@1';
+            readonly members: readonly [
+              { readonly name: 'NORMAL'; readonly value: 'NORMAL' },
+              { readonly name: 'PREFEITO'; readonly value: 'PREFEITO' },
             ];
           };
         };

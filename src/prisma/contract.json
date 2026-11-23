@@ -50,6 +50,19 @@
               }
             ]
           },
+          "Prioridade": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "NORMAL",
+                "value": "NORMAL"
+              },
+              {
+                "name": "PREFEITO",
+                "value": "PREFEITO"
+              }
+            ]
+          },
           "Sala": {
             "codecId": "pg/text@1",
             "members": [
@@ -132,6 +145,19 @@
                   "kind": "scalar"
                 }
               },
+              "prioridade": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "Prioridade",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
               "sala": {
                 "nullable": false,
                 "type": {
@@ -170,6 +196,9 @@
                 "nome": {
                   "column": "nome"
                 },
+                "prioridade": {
+                  "column": "prioridade"
+                },
                 "sala": {
                   "column": "sala"
                 }
@@ -193,6 +222,11 @@
                   "expression": "\"departamento\" IN ('Chefia de Gabinete', 'Secretaria Municipal Governo e Planejamento Estratégico', 'Secretaria Municipal de Assuntos Jurídicos', 'Secretaria Municipal Administração, Gestão e Equipe Públicos', 'Secretaria Municipal Fazenda, Desenvolvimento Econômico e Finanças', 'Secretaria Municipal Turismo, Juventude e Empreendedorismo', 'Secretaria Municipal Obras Públicas', 'Secretaria Municipal Planejamento Urbano e Habitação')",
                   "name": "agendamento_departamento_check_86dea612",
                   "prefix": "agendamento_departamento_check"
+                },
+                {
+                  "expression": "\"prioridade\" IN ('NORMAL', 'PREFEITO')",
+                  "name": "agendamento_prioridade_check_463c2d12",
+                  "prefix": "agendamento_prioridade_check"
                 },
                 {
                   "expression": "\"sala\" IN ('Sala Azul', 'Sala Verde', 'Sala Amarela')",
@@ -252,6 +286,21 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "prioridade": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "NORMAL"
+                  },
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "Prioridade",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
                 "sala": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -276,7 +325,8 @@
                   "columns": [
                     "sala",
                     "data",
-                    "horaInicio"
+                    "horaInicio",
+                    "prioridade"
                   ]
                 }
               ]
@@ -296,6 +346,13 @@
                 "Secretaria Municipal Planejamento Urbano e Habitação"
               ]
             },
+            "Prioridade": {
+              "kind": "valueSet",
+              "values": [
+                "NORMAL",
+                "PREFEITO"
+              ]
+            },
             "Sala": {
               "kind": "valueSet",
               "values": [
@@ -310,7 +367,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "ca204f28bb9bd19f3bf82672d05df7c91ab78b3791253d5ea489d1901e28dfcc"
+    "storageHash": "9a35bb6c32be20950956492551fea7afc8710a9e761bcde67a060f9e69ef2572"
   },
   "execution": {
     "executionHash": "43bf20e8bf58a8241ae2535c17f7a6fa8337ffdd5c26007207045c984cb37131",

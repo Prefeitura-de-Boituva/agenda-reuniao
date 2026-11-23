@@ -52,6 +52,18 @@ describe("categorizarErroDb", () => {
     expect(categorizarErroDb(erro)).toBe("conflito");
   });
 
+  it("classifica exclusion_violation da constraint de sobreposição", () => {
+    const causa = Object.assign(
+      new Error('conflicting key value violates exclusion constraint "agendamento_sem_sobreposicao_normal"'),
+      { code: "23P01", constraint: "agendamento_sem_sobreposicao_normal" }
+    );
+    const erro = Object.assign(new Error("falha ao inserir", { cause: causa }), {
+      sqlState: "23P01",
+    });
+
+    expect(categorizarErroDb(erro)).toBe("conflito");
+  });
+
   it("não confunde outro sqlState com conflito", () => {
     const erro = Object.assign(new Error("violation of foreign key"), { sqlState: "23503" });
 

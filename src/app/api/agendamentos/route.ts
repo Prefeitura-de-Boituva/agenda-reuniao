@@ -1,8 +1,17 @@
 import {
   type Departamento,
   type Sala,
+  salaPermitePrioridadeZero,
 } from "@/lib/agendamentoOpcoes";
-import { temConflito } from "@/lib/conflict";
+import { permitePrioridadeZero } from "@/lib/acesso";
+import { buscarConflitos } from "@/lib/conflict";
+import {
+  MSG_PRIORIDADE_ZERO_INVALIDA,
+  MSG_PRIORIDADE_ZERO_SEM_PAPEL,
+  mensagemSalaSemPrioridadeZero,
+  registrarPrioridadeZero,
+} from "@/lib/prioridadeZero";
+import { papelDaRequisicao } from "@/lib/sessao";
 import {
   getErroCamposObrigatorios,
   getSlotError,
@@ -18,6 +27,8 @@ import {
   registrarErroDb,
 } from "@/prisma/errors";
 import type { Models } from "@/prisma/contract.d";
+
+type Prioridade = Models.public_Agendamento["prioridade"];
 
 /**
  * `horaInicio`/`horaFim` são `varchar(5)` no contrato, o que o Prisma 8 expõe
@@ -35,7 +46,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Corpo da requisição inválido." }, { status: 400 });
   }
 
-  const { nome, departamento, sala, data, horaInicio, horaFim } = (body ?? {}) as Record<string, unknown>;
+  const { nome, departamento, sala, data, horaInicio, horaFim, prioridade } = (body ?? {}) as Record<string, unknown>;
 
   if (
     typeof nome !== "string" ||
@@ -85,6 +96,28 @@ export async function POST(request: Request) {
     return Response.json({ error: slotError }, { status: 400 });
   }
 
+  // Campo opcional: ausente vale `NORMAL`, e qualquer outro valor é rejeitado
+  // antes de chegar ao enum/CHECK do banco (que responderia 500).
+  if (prioridade !== undefined && prioridade !== "NORMAL" && prioridade !== "PREFEITO") {
+    return Response.json({ error: MSG_PRIORIDADE_ZERO_INVALIDA }, { status: 400 });
+  }
+  const prioridadeValida: Prioridade = prioridade ?? "NORMAL";
+
+  // Issue #66: a Prioridade 0 é a única forma de sobrepor uma reserva existente,
+  // e só vale com o papel do Gabinete e numa sala que a permite. As duas
+  // checagens são do servidor — esconder o controle no front não basta.
+  if (prioridadeValida === "PREFEITO") {
+    if (!permitePrioridadeZero(await papelDaRequisicao())) {
+      return Response.json({ error: MSG_PRIORIDADE_ZERO_SEM_PAPEL }, { status: 403 });
+    }
+    if (!salaPermitePrioridadeZero(salaValida)) {
+      return Response.json(
+        { error: mensagemSalaSemPrioridadeZero(salaValida) },
+        { status: 403 }
+      );
+    }
+  }
+
   const novoAgendamento = {
     id: crypto.randomUUID(),
     nome,
@@ -94,23 +127,51 @@ export async function POST(request: Request) {
     horaInicio: hora(horaInicio),
     horaFim: hora(horaFim),
     criadoEm: new Date().toISOString(),
+    prioridade: prioridadeValida,
   };
 
   // Checagem de sobreposição e gravação no mesmo `try`: falha de
   // infraestrutura (banco fora do ar, `DATABASE_URL` ausente) não pode escapar
-  // como exceção não tratada nem no `temConflito`, nem no `create`.
+  // como exceção não tratada nem no `buscarConflitos`, nem no `create`.
   try {
-    const conflito = await temConflito(salaValida, data, horaInicio, horaFim);
+    const conflitos = await buscarConflitos(salaValida, data, horaInicio, horaFim);
 
-    if (conflito) {
+    if (conflitos.length > 0 && prioridadeValida === "NORMAL") {
       return Response.json({ error: MSG_CONFLITO_HORARIO }, { status: 409 });
     }
 
     await db.orm.public.Agendamento.create(novoAgendamento);
+
+    // RB5: toda criação com Prioridade 0 é auditada, mesmo sem reserva afetada.
+    if (prioridadeValida === "PREFEITO") {
+      registrarPrioridadeZero({
+        papel: "PREFEITO",
+        agendamentoId: novoAgendamento.id,
+        nome,
+        departamento,
+        sala: salaValida,
+        data,
+        horaInicio,
+        horaFim,
+        afetados: conflitos.map((ag) => ({
+          id: ag.id,
+          nome: ag.nome,
+          departamento: ag.departamento,
+          sala: ag.sala,
+          data: ag.data,
+          horaInicio: ag.horaInicio,
+          horaFim: ag.horaFim,
+        })),
+      });
+    }
+
+    // RB3/RB4: a reserva sobreposta continua gravada, e a resposta devolve a
+    // lista de afetados para que quem criou veja quem precisa ser avisado.
+    return Response.json({ ...novoAgendamento, reservasConflitadas: conflitos }, { status: 201 });
   } catch (erro) {
-    // A constraint `@@unique([sala, data, horaInicio])` é o desempate quando duas
-    // requisições simultâneas passam juntas pelo `temConflito`: o perdedor
-    // precisa responder 409, e não 500.
+    // A unique e as exclusion constraints são o desempate quando duas
+    // requisições simultâneas passam juntas pelo `buscarConflitos`: o perdedor
+    // responde 409 (23505/23P01), e não 500.
     if (categorizarErroDb(erro) === 'conflito') {
       return Response.json({ error: MSG_CONFLITO_HORARIO }, { status: 409 });
     }
@@ -120,8 +181,6 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-
-  return Response.json(novoAgendamento, { status: 201 });
 }
 
 export async function GET(request: Request): Promise<Response> {

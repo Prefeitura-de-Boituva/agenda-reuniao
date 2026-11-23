@@ -10,6 +10,8 @@ services:
       # A imagem roda com NODE_ENV=production, então o portão de senha vale aqui
       # também. Sem ACCESS_PASSWORD no `.env` a aplicação sobe, mas fica fechada.
       ACCESS_PASSWORD: ${ACCESS_PASSWORD:-}
+      # Papel PREFEITO (issue #66): sem esta senha ninguém cria Prioridade 0.
+      ACCESS_PASSWORD_PREFEITO: ${ACCESS_PASSWORD_PREFEITO:-}
     depends_on:
       postgres:
         condition: service_healthy

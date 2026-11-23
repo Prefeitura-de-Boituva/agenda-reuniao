@@ -294,8 +294,34 @@ HMAC-SHA256 da senha, não a senha. Trocar `ACCESS_PASSWORD` invalida todos os
 cookies emitidos. Para sair, `DELETE /api/acesso` limpa o cookie.
 
 Limites conhecidos (aceitos para a validação com usuários reais da issue #29):
-uma senha só, sem trilha de quem fez cada ação; sem limite de tentativas de
-login; sem 2FA. Não é um controle de acesso por pessoa.
+acesso por senha compartilhada, sem identidade por pessoa; sem limite de
+tentativas de login; sem 2FA. Não é um controle de acesso por pessoa.
+
+### Papel PREFEITO (Prioridade 0)
+
+A exceção é a issue #66: `ACCESS_PASSWORD_PREFEITO` define uma **segunda senha**,
+a do Gabinete do Prefeito. Quem entra com ela recebe o papel `PREFEITO`, o único
+que pode criar um agendamento com Prioridade 0 — sobrepor uma reserva já
+existente, e apenas nas salas de `SALAS_COM_PRIORIDADE_ZERO`
+(`src/lib/agendamentoOpcoes.ts`, hoje só a Sala Azul). A reserva sobreposta não é
+apagada: ela continua na grade marcada como "em conflito" e o departamento é
+avisado para remarcar.
+
+| Situação | Comportamento |
+| --- | --- |
+| Sem `ACCESS_PASSWORD_PREFEITO` | ninguém é `PREFEITO`; o controle de Prioridade 0 nem aparece |
+| Login com `ACCESS_PASSWORD` | papel `NORMAL`; a RN17 bloqueia horário ocupado |
+| Login com `ACCESS_PASSWORD_PREFEITO` | papel `PREFEITO`; Prioridade 0 liberada nas salas permitidas |
+| As duas senhas iguais | papel `NORMAL` — ninguém é promovido por engano |
+
+O papel não é uma sessão consultável: ele está no próprio token do cookie
+(HMAC da senha), resolvido por `papelDoToken` em `src/lib/acesso.ts`.
+`GET /api/acesso` informa o papel da sessão, e o servidor recheca em
+`POST /api/agendamentos` — esconder o controle no front não autoriza nada.
+O aviso institucional aparece no formulário das salas que permitem Prioridade
+0. Cada sobreposição também gera uma notificação textual na linha de auditoria
+(`src/lib/prioridadeZero.ts`), é devolvida na resposta da criação e fica visível
+na grade pelo marcador "em conflito".
 
 ## Deploy na Vercel
 
@@ -318,6 +344,7 @@ No painel do projeto (*Settings → Environment Variables*), adicione em
 | --- | --- | --- |
 | `DATABASE_URL` | string **pooled** do Neon (host `-pooler`) | mesma do `.env.production.local` |
 | `ACCESS_PASSWORD` | senha do grupo | obrigatória; sem ela o acesso fica fechado |
+| `ACCESS_PASSWORD_PREFEITO` | senha do Gabinete do Prefeito | opcional; habilita o papel `PREFEITO` e a Prioridade 0 (issue #66) |
 
 `DIRECT_URL` **não** vai para a Vercel: ela só serve à CLI do Prisma, que roda a
 partir do repositório. Nunca commite credenciais nem use `npm run seed` no banco
