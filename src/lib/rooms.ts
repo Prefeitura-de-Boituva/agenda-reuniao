@@ -1,14 +1,27 @@
 import type { Room } from "@/types/schedule";
+import { SALAS } from "./agendamentoOpcoes";
 
 /**
- * Salas disponíveis na agenda.
+ * "Sala Azul" → "sala-azul": o slug usado pela UI e pela URL (`?room=sala-azul`).
  *
- * Os nomes espelham o enum `Sala` do contrato Prisma
- * (`src/prisma/contract.prisma`), porque é esse valor que a API recebe e grava
- * no banco. Os `id` são os slugs usados pela UI e pela URL (`?sala=sala-azul`).
+ * Acentos são removidos para que o slug continue válido se uma sala futura vier
+ * com cedilha ou til no nome.
  */
-export const ROOMS: Room[] = [
-  { id: "sala-azul", name: "Sala Azul" },
-  { id: "sala-verde", name: "Sala Verde" },
-  { id: "sala-amarela", name: "Sala Amarela" },
-];
+function slugDaSala(nome: string): string {
+  return nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+/**
+ * Salas disponíveis na agenda, derivadas de `SALAS` — a mesma lista que a API
+ * usa para validar o corpo da requisição e que espelha o enum `Sala` do contrato
+ * Prisma (`src/prisma/contract.prisma`).
+ *
+ * Derivar em vez de repetir os nomes é o que impede a contagem de salas da tela
+ * inicial de divergir das salas que o sistema aceita gravar no banco.
+ */
+export const ROOMS: Room[] = SALAS.map((name) => ({ id: slugDaSala(name), name }));

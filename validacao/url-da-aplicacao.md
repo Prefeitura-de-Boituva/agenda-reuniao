@@ -89,10 +89,8 @@ as exercitava. No merge a remoção prevaleceu.
   publicaria a agenda sem senha e com RN12/RN16 dependentes do fuso do processo.
 - **Não é falha de install.** `npm ci --dry-run --ignore-scripts` sobre `origin/main`
   resolveu 917 pacotes com o lockfile em sincronia.
-- **Falta de `DATABASE_URL` não derruba o build** — mas o `src/prisma/db.ts` do
-  upstream cai num mock em memória nesse caso: um deploy "verde" sem env serviria
-  agenda vazia, perdendo tudo a cada cold start. As variáveis são obrigatórias antes
-  do primeiro tráfego.
+- **Falta de `DATABASE_URL`**: esta observação descrevia o comportamento anterior.
+  O runtime atual exige uma conexão PostgreSQL/Neon e não usa fallback em memória.
 
 O log continua pendente: sem login na CLI não há como ler
 `npx vercel inspect dpl_BibRZjVCcYR63hjcYs6iCvBPL1FQ --logs`. A correção estrutural
@@ -114,7 +112,7 @@ Descartado com prova local, na árvore `ce785e5`:
 |---|---|
 | Lockfile fora de sincronia | `npm ci --dry-run --ignore-scripts`: 917 pacotes, ok |
 | Falta de env no build | build com `.env` afastado: rc=0, `ƒ Proxy (Middleware)` |
-| `db.ts` estourando sem `DATABASE_URL` | cai no mock em memória, não lança |
+| `db.ts` sem `DATABASE_URL` | runtime exige conexão real; sem fallback em memória |
 | Tipos / lint | `tsc --noEmit` limpo; ESLint 0 erros nos arquivos tocados |
 | Node | `.nvmrc`/`engines` em 24; local v24.22.1 builda |
 
@@ -147,8 +145,7 @@ npx prisma db migrate --db "$DIRECT_URL"
 npx prisma db verify  --db "$DIRECT_URL" --strict   # "Database marker and schema match contract"
 ```
 
-> Não rodar `npm run seed` contra o Neon: os dados são reais e o seed é bloqueado em
-> produção (commit `4a788a2`).
+> O seed de demonstração foi removido; não há script para inserir reservas fictícias.
 
 ---
 

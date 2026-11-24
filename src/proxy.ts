@@ -9,7 +9,12 @@ import { COOKIE_ACESSO, acessoExigido, tokenValido } from "@/lib/acesso";
  */
 
 /** Healthcheck do Docker e da Vercel não pode exigir senha. */
-const ROTAS_PUBLICAS = ["/entrar", "/api/acesso", "/api/health"];
+const ROTAS_PUBLICAS = [
+  "/entrar",
+  "/api/acesso",
+  "/api/health",
+  "/api/internal/retencao-agendamentos",
+];
 
 export default function proxy(request: NextRequest) {
   if (!acessoExigido()) return NextResponse.next();

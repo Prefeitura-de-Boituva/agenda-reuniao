@@ -19,6 +19,7 @@ import { NovoAgendamentoModal } from "./NovoAgendamentoModal";
 import { CancelarAgendamentoModal } from "./CancelarAgendamentoModal";
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Toast } from "@/components/ui";
 import { getSlotError, isPastToday, isSlotValido } from "@/lib/validations";
+import { ApiError, editarAgendamento } from "@/lib/apiClient";
 import { cn } from "@/lib/utils";
 
 function computeEndTime(startTime: string, durationBlocks: number): string {
@@ -44,8 +45,9 @@ interface BookingFormModalProps {
   initialStartTime?: string;
   booking?: Booking;
   existingBookings: Booking[];
-  onSave: (booking: Booking) => void;
+  onSave: (booking: Booking) => void | Promise<void>;
   onClose: () => void;
+  externalError?: string | null;
 }
 
 function BookingFormModal({
@@ -57,6 +59,7 @@ function BookingFormModal({
   existingBookings,
   onSave,
   onClose,
+  externalError,
 }: BookingFormModalProps) {
   const slots = generateTimeSlots();
   const [name, setName] = useState(booking?.name ?? "");
@@ -74,6 +77,7 @@ function BookingFormModal({
     return Math.round((endTotal - startTotal) / SLOT_MINUTES);
   });
   const [durationBlocks, setDurationBlocks] = useState(initialBlocks);
+  const [saving, setSaving] = useState(false);
 
   const startIndex = slots.findIndex((s) => s.startTime === startTime);
   const maxBlocks = slots.length - startIndex;
@@ -102,9 +106,9 @@ function BookingFormModal({
 
   const pastError = isPastToday(date, startTime) ? "Horário já passou no dia atual." : null;
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (conflict || slotError || pastError) return;
+    if (conflict || slotError || pastError || saving) return;
     const base =
       booking ??
       ({
@@ -112,7 +116,14 @@ function BookingFormModal({
         roomId: room.id,
         date,
       } as Booking);
-    onSave({ ...base, name, department, startTime, endTime });
+    setSaving(true);
+    try {
+      // `onSave` grava no servidor antes de atualizar a grade; se falhar, o
+      // modal continua aberto com o erro em `externalError`.
+      await onSave({ ...base, name, department, startTime, endTime });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -188,13 +199,21 @@ function BookingFormModal({
                 {slotError}
               </p>
             )}
+            {externalError && (
+              <p className="text-tiny font-medium text-danger-700" role="alert">
+                {externalError}
+              </p>
+            )}
           </ModalBody>
           <ModalFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={!!conflict || slotError !== null || pastError !== null}>
-              {mode === "create" ? "Agendar" : "Salvar"}
+            <Button
+              type="submit"
+              disabled={saving || !!conflict || slotError !== null || pastError !== null}
+            >
+              {saving ? "Salvando…" : mode === "create" ? "Agendar" : "Salvar"}
             </Button>
           </ModalFooter>
         </form>
@@ -235,10 +254,10 @@ export function ScheduleGrid({
   const [createTarget, setCreateTarget] = useState<{ date: string; startTime: string } | null>(null);
   const [editTarget, setEditTarget] = useState<Booking | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null);
-  const [actionsTarget, setActionsTarget] = useState<Booking | null>(null);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(() => new Set());
   const [notice, setNotice] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!notice) return;
@@ -263,7 +282,6 @@ export function ScheduleGrid({
       const next = new Set(current);
       const currentlyExpanded = date === todayISO ? !next.has(date) : next.has(date);
       if (currentlyExpanded) {
-        // Today is expanded by default; other days are collapsed by default.
         if (date === todayISO) next.add(date);
         else next.delete(date);
       } else if (date === todayISO) {
@@ -360,31 +378,20 @@ export function ScheduleGrid({
       <section
         className={cn("flex w-full min-w-0 flex-col gap-4 md:hidden", isLoading && "pointer-events-none")}
         aria-label="Grade de horários por dia"
-        data-testid="mobile-schedule"
       >
-        {isLoading && (
-          <div className="flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white p-4 text-neutral-500">
-            <Loader2 className="size-5 animate-spin text-primary" />
-            <span className="text-caption font-medium">Carregando agendamentos...</span>
-          </div>
-        )}
         {schedule.dates.map((date) => {
           const dayStart = parseDate(date);
           const isToday = date === todayISO;
-          const isHighlighted = date === highlightedDate;
           const expanded = isDayExpanded(date);
-          const availableCount = schedule.slotsByDate[date].filter(
-            (slot) => slot.status === "available"
-          ).length;
+          const availableCount = schedule.slotsByDate[date].filter((slot) => slot.status === "available").length;
           const slotsId = `mobile-slots-${date}`;
           return (
             <article
               key={date}
-              data-testid="mobile-day-card"
               className={cn(
                 "w-full min-w-0 max-w-full overflow-hidden rounded-xl border bg-white shadow-card",
                 isToday ? "border-2 border-primary bg-primary-50" : "border-neutral-200",
-                isHighlighted && !isToday && "border-primary-300"
+                date === highlightedDate && !isToday && "border-primary-300"
               )}
             >
               <h2 className="m-0">
@@ -404,82 +411,45 @@ export function ScheduleGrid({
                     <span className={cn("truncate text-body font-semibold capitalize", isToday ? "text-primary-800" : "text-neutral-800")}>
                       {formatDateShort(dayStart)}
                     </span>
-                    <span className="text-tiny text-neutral-600">
-                      {availableCount}/{schedule.slotsByDate[date].length} livres
-                    </span>
+                    <span className="text-tiny text-neutral-600">{availableCount}/{schedule.slotsByDate[date].length} livres</span>
                   </span>
-                  {isToday && (
-                    <span className="shrink-0 rounded-full bg-primary-100 px-2.5 py-1 text-tiny font-semibold text-primary-800">
-                      Hoje
-                    </span>
-                  )}
+                  {isToday && <span className="shrink-0 rounded-full bg-primary-100 px-2.5 py-1 text-tiny font-semibold text-primary-800">Hoje</span>}
                 </button>
               </h2>
               <div
                 id={slotsId}
-                aria-label={`Horários de ${formatDateShort(dayStart)}`}
                 aria-hidden={!expanded}
                 inert={!expanded}
-                className={cn(
-                  "grid transition-[grid-template-rows] duration-200 motion-reduce:transition-none",
-                  expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-                )}
+                className={cn("grid transition-[grid-template-rows] duration-200 motion-reduce:transition-none", expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}
               >
-              <ul
-                className={cn(
-                  "min-h-0 min-w-0 overflow-hidden divide-y divide-neutral-100",
-                  expanded && "border-t border-neutral-200"
-                )}
-              >
-                {schedule.slotsByDate[date].map((slot) => {
-                  const booking = slot.booking;
-                  const activateSlot = () =>
-                    slot.status === "booked"
-                      ? booking && setActionsTarget(booking)
-                      : openCreateModal(slot, date);
-                  return (
-                    <li key={slot.startTime} data-testid="mobile-slot" className="min-w-0 px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={activateSlot}
-                        onKeyDown={(event) => {
-                          if (event.key !== "Enter" && event.key !== " ") return;
-                          event.preventDefault();
-                          activateSlot();
-                        }}
-                        aria-label={
-                          booking
-                            ? `Ver ações do agendamento de ${booking.name}, ${slot.startTime} às ${slot.endTime}`
-                            : `Agendar ${date} das ${slot.startTime} às ${slot.endTime}`
-                        }
-                        className={cn(
-                          "flex w-full min-w-0 max-w-full items-center gap-3 rounded-lg border p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400",
-                          booking
-                            ? "border-danger-200 bg-danger-50 text-danger-800 hover:bg-danger-100"
-                            : "border-success-200 bg-success-50 text-success-700 hover:bg-success-100"
-                        )}
-                      >
-                        <span className="flex shrink-0 flex-col text-caption font-semibold tabular-nums leading-tight">
-                          <span>{slot.startTime}</span>
-                          <span className="text-tiny font-normal">{slot.endTime}</span>
-                        </span>
-                        {booking ? (
-                          <span className="flex min-w-0 flex-1 flex-col overflow-hidden leading-tight">
-                            <span className="truncate text-caption font-medium" title={booking.name}>
-                              {booking.name}
-                            </span>
-                            <span className="truncate text-tiny" title={booking.department}>
-                              {booking.department}
-                            </span>
+                <ul className={cn("min-h-0 min-w-0 overflow-hidden divide-y divide-neutral-100", expanded && "border-t border-neutral-200")}>
+                  {schedule.slotsByDate[date].map((slot) => {
+                    const booking = slot.booking;
+                    return (
+                      <li key={slot.startTime} className="min-w-0 px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => booking ? openCancelModal(booking) : openCreateModal(slot, date)}
+                          aria-label={booking ? `Ver agendamento de ${booking.name}, ${slot.startTime} às ${slot.endTime}` : `Agendar ${date} das ${slot.startTime} às ${slot.endTime}`}
+                          className={cn(
+                            "flex w-full min-w-0 max-w-full items-center gap-3 rounded-lg border p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400",
+                            booking ? "border-danger-200 bg-danger-50 text-danger-800 hover:bg-danger-100" : "border-success-200 bg-success-50 text-success-700 hover:bg-success-100"
+                          )}
+                        >
+                          <span className="flex shrink-0 flex-col text-caption font-semibold tabular-nums leading-tight">
+                            <span>{slot.startTime}</span><span className="text-tiny font-normal">{slot.endTime}</span>
                           </span>
-                        ) : (
-                          <span className="ml-auto shrink-0 text-caption font-semibold">LIVRE</span>
-                        )}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+                          {booking ? (
+                            <span className="flex min-w-0 flex-1 flex-col overflow-hidden leading-tight">
+                              <span className="truncate text-caption font-medium" title={booking.name}>{booking.name}</span>
+                              <span className="truncate text-tiny" title={booking.department}>{booking.department}</span>
+                            </span>
+                          ) : <span className="ml-auto shrink-0 text-caption font-semibold">LIVRE</span>}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             </article>
           );
@@ -578,12 +548,9 @@ export function ScheduleGrid({
                         >
                           {slot.status === "booked" && slot.booking && (
                             <>
-                              <span
-                                className="flex min-w-0 flex-1 flex-col overflow-hidden leading-tight"
-                                title={`${slot.booking.name} — ${slot.booking.department}`}
-                              >
-                                <span className="truncate font-medium" title={slot.booking.name}>{slot.booking.name}</span>
-                                <span className="truncate" title={slot.booking.department}>{slot.booking.department}</span>
+                              <span className="flex min-w-0 flex-1 flex-col leading-tight" title={`${slot.booking.name} — ${slot.booking.department}`}>
+                                <span className="truncate font-medium">{slot.booking.name}</span>
+                                <span className="truncate">{slot.booking.department}</span>
                               </span>
                               <span className="flex shrink-0 items-center gap-0 sm:gap-1">
                                 <button
@@ -622,51 +589,6 @@ export function ScheduleGrid({
           </tbody>
         </table>
       </div>
-
-      {actionsTarget && (
-        <Modal open onClose={() => setActionsTarget(null)}>
-          <ModalContent>
-            <ModalHeader>Ações do agendamento</ModalHeader>
-            <ModalBody className="flex flex-col gap-2">
-              <p className="truncate font-medium text-neutral-900" title={actionsTarget.name}>
-                {actionsTarget.name}
-              </p>
-              <p className="truncate text-caption text-neutral-600" title={actionsTarget.department}>
-                {actionsTarget.department}
-              </p>
-              <p className="text-caption text-neutral-500">
-                {actionsTarget.startTime} – {actionsTarget.endTime}
-              </p>
-            </ModalBody>
-            <ModalFooter className="flex-col gap-2 sm:flex-row">
-              <Button
-                type="button"
-                className="w-full"
-                onClick={() => {
-                  setEditTarget(actionsTarget);
-                  setActionsTarget(null);
-                }}
-              >
-                Editar agendamento
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  setDeleteTarget(actionsTarget);
-                  setActionsTarget(null);
-                }}
-              >
-                Cancelar agendamento
-              </Button>
-              <Button type="button" variant="outline" className="w-full" onClick={() => setActionsTarget(null)}>
-                Fechar
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
-      )}
 
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-1.5">
@@ -750,12 +672,38 @@ export function ScheduleGrid({
           date={editTarget.date}
           booking={editTarget}
           existingBookings={bookings[editTarget.date] ?? []}
-          onSave={(booking) => {
+          externalError={editError}
+          onSave={async (booking) => {
+            // A edição é gravada no banco antes de atualizar a grade: sem isso a
+            // reserva editada só existia no navegador de quem editou e a tela
+            // inicial continuava contando o horário antigo.
+            try {
+              await editarAgendamento(booking.id, {
+                nome: booking.name,
+                departamento: booking.department,
+                horaInicio: booking.startTime,
+                horaFim: booking.endTime,
+              });
+            } catch (err) {
+              // 404 = a reserva não existe mais no servidor (cancelada em outra
+              // aba/sessão desde que a grade foi carregada). Aplica a edição mesmo
+              // assim, como o cancelamento já faz, em vez de bloquear o usuário.
+              if (!(err instanceof ApiError && err.status === 404)) {
+                setEditError(
+                  err instanceof Error ? err.message : "Não foi possível salvar a edição."
+                );
+                return;
+              }
+            }
+            setEditError(null);
             onUpdateBooking(booking);
             setEditTarget(null);
             setNotice("Editado com sucesso!");
           }}
-          onClose={() => setEditTarget(null)}
+          onClose={() => {
+            setEditTarget(null);
+            setEditError(null);
+          }}
         />
       )}
       {deleteTarget && (

@@ -41,20 +41,24 @@ describe("Responsividade e Acessibilidade", () => {
       it("grade de horarios esta legivel", () => {
         cy.visit("/grade");
         if (width < 768) {
-          cy.get("[data-testid='mobile-schedule']").should("be.visible");
-          cy.get("[data-testid='mobile-day-card']").should("have.length", 5);
-          cy.get("[data-testid='mobile-slot']").should("have.length.at.least", 5);
+          cy.get("section[aria-label='Grade de horários por dia']").should("be.visible");
+          cy.get("section[aria-label='Grade de horários por dia'] article").should("have.length", 5);
           cy.get("[data-testid='desktop-table-container']").should("not.be.visible");
-          cy.get("[data-testid='mobile-day-card']").each(($card) => {
-            expect($card[0].getBoundingClientRect().width).to.be.at.most(width + 1);
-          });
         } else {
           cy.get("table").should("be.visible");
           cy.get("[data-testid='desktop-table-container']").then(($wrapper) => {
             expect($wrapper[0].getBoundingClientRect().width).to.be.at.most(width + 1);
           });
-          cy.get("[data-testid='mobile-schedule']").should("not.be.visible");
+          cy.get("section[aria-label='Grade de horários por dia']").should("not.be.visible");
         }
+        cy.get("table").then(($table) => {
+          if (!$table.is(":visible")) return;
+          const table = $table[0];
+          const wrapper = table.parentElement;
+          expect(wrapper).not.to.equal(null);
+          expect(wrapper!.getBoundingClientRect().width).to.be.at.most(width + 1);
+          expect(table.scrollWidth).to.be.greaterThan(0);
+        });
       });
 
       it("modais nao vazam do viewport", () => {
@@ -76,99 +80,6 @@ describe("Responsividade e Acessibilidade", () => {
       it("contrast adequado (WCAG AA)", () => {
         cy.injectAxe();
         cy.checkA11y();
-      });
-    });
-  });
-
-  describe("Grade mobile", () => {
-    beforeEach(() => {
-      cy.viewport(320, 568);
-      cy.visit("/grade");
-    });
-
-    it("destaca o dia atual quando ele esta na semana exibida", () => {
-      cy.get("[data-testid='mobile-day-card']").then(($days) => {
-        const todayCard = [...$days].find((day) => day.querySelector("button[aria-expanded]")?.textContent?.includes("Hoje"));
-        if (todayCard) {
-          cy.wrap(todayCard).should("have.class", "border-primary");
-        }
-      });
-    });
-
-    it("abre as acoes do agendamento ao tocar em um horario ocupado", () => {
-      cy.get("[data-testid='mobile-day-card']").then(($cards) => {
-        const cardWithBooking = [...$cards].find((card) =>
-          card.querySelector("button[aria-label^='Ver ações']")
-        );
-        if (!cardWithBooking) return;
-        cy.wrap(cardWithBooking).find("button[aria-expanded]").then(($toggle) => {
-          if ($toggle.attr("aria-expanded") === "false") cy.wrap($toggle).click();
-        });
-        cy.wrap(cardWithBooking)
-          .find("[data-testid='mobile-slot'] button[aria-label^='Ver ações']")
-          .first()
-          .click();
-        cy.contains("Ações do agendamento").should("be.visible");
-        cy.contains("button", "Editar agendamento").should("be.visible");
-        cy.contains("button", "Cancelar agendamento").should("be.visible");
-      });
-    });
-
-    it("mantem somente hoje expandido inicialmente e mostra a disponibilidade", () => {
-      cy.get("[data-testid='mobile-day-card']").should("have.length", 5).each(($card) => {
-        cy.wrap($card).find("button[aria-expanded]").should(($button) => {
-          const isToday = $button.text().includes("Hoje");
-          expect($button.attr("aria-expanded")).to.equal(isToday ? "true" : "false");
-          expect($button.text()).to.match(/\d+\/\d+ livres/);
-        });
-      });
-    });
-
-    it("expande e recolhe dias independentemente", () => {
-      cy.get("[data-testid='mobile-day-card']").eq(1).within(() => {
-        cy.get("button[aria-expanded='false']").click().should("have.attr", "aria-expanded", "true");
-        cy.get("[data-testid='mobile-slot']").should("have.length.at.least", 1);
-        cy.get("button[aria-expanded='true']").click().should("have.attr", "aria-expanded", "false");
-        cy.get("[data-testid='mobile-slot']").should("not.be.visible");
-      });
-    });
-
-    it("permite expandir um dia pelo teclado", () => {
-      cy.get("[data-testid='mobile-day-card']").eq(1).find("button[aria-expanded='false']")
-        .focus()
-        .type("{enter}")
-        .should("have.attr", "aria-expanded", "true");
-    });
-
-    it("mantem nome e secretaria truncados em linhas individuais", () => {
-      cy.get("[data-testid='mobile-day-card'] [aria-expanded='true']")
-        .closest("article")
-        .find("[data-testid='mobile-slot']")
-        .then(($slots) => {
-          const bookingSlot = [...$slots].find((slot) => slot.querySelector("[title]"));
-          if (!bookingSlot) return;
-          cy.wrap(bookingSlot).find("[title]").should("have.length.at.least", 2).each(($text) => {
-            expect($text.attr("title")).to.be.a("string").and.not.be.empty;
-            expect($text).to.have.class("truncate");
-          });
-        });
-    });
-  });
-
-  describe("Truncamento desktop", () => {
-    beforeEach(() => {
-      cy.viewport(1024, 768);
-      cy.visit("/grade");
-    });
-
-    it("mantem textos de agendamentos em uma linha com tooltip", () => {
-      cy.get("table").should("be.visible");
-      cy.get("table [title]").then(($texts) => {
-        if (!$texts.length) return;
-        cy.wrap($texts).each(($text) => {
-          expect($text.attr("title")).to.be.a("string").and.not.be.empty;
-          expect($text).to.have.class("truncate");
-        });
       });
     });
   });

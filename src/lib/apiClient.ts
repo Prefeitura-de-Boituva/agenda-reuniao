@@ -34,3 +34,27 @@ export async function cancelarAgendamento(id: string, departamento: string) {
 
   return response.json();
 }
+
+export interface DadosEdicao {
+  nome: string;
+  departamento: string;
+  horaInicio: string;
+  horaFim: string;
+}
+
+/** Sala e data não são editáveis: a API mantém os valores gravados. */
+export async function editarAgendamento(id: string, dados: DadosEdicao) {
+  const response = await fetch(`/api/agendamentos/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(dados),
+  });
+
+  if (!response.ok) {
+    await lerErro(response, "Erro ao editar agendamento");
+  }
+
+  return response.json();
+}

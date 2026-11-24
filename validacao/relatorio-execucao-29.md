@@ -118,5 +118,4 @@ npx cypress run --spec cypress/e2e/cancelamento.cy.ts
 curl -s "<URL>/api/agendamentos?sala=Sala%20Azul&data=<AAAA-MM-DD>"
 ```
 
-> Não rodar `npm run seed` contra a URL de produção: o seed é bloqueado em produção
-> (commit `4a788a2`) e os dados são reais.
+> O seed de demonstração foi removido; não há script para inserir reservas fictícias.
