@@ -65,7 +65,7 @@ export default function Home() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
-          label="Salas Disponíveis"
+          label="Salas de Reunião"
           value={String(stats.roomCount)}
           detail={ROOMS.map((room) => room.name).join(", ")}
         />
