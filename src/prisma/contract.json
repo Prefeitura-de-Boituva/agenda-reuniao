@@ -71,6 +71,13 @@
         "models": {
           "Agendamento": {
             "fields": {
+              "cancelamentoTokenHash": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "criadoEm": {
                 "nullable": false,
                 "type": {
@@ -149,6 +156,9 @@
             "relations": {},
             "storage": {
               "fields": {
+                "cancelamentoTokenHash": {
+                  "column": "cancelamentoTokenHash"
+                },
                 "criadoEm": {
                   "column": "criadoEm"
                 },
@@ -201,6 +211,11 @@
                 }
               ],
               "columns": {
+                "cancelamentoTokenHash": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "criadoEm": {
                   "codecId": "pg/timestamptz-string@1",
                   "default": {
@@ -274,6 +289,11 @@
               "uniques": [
                 {
                   "columns": [
+                    "cancelamentoTokenHash"
+                  ]
+                },
+                {
+                  "columns": [
                     "sala",
                     "data",
                     "horaInicio"
@@ -310,7 +330,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "ca204f28bb9bd19f3bf82672d05df7c91ab78b3791253d5ea489d1901e28dfcc"
+    "storageHash": "1eb38c2822b829bb28cc718281e5a2d27f3ac2b9d7fcba5392080fa07c13537c"
   },
   "execution": {
     "executionHash": "43bf20e8bf58a8241ae2535c17f7a6fa8337ffdd5c26007207045c984cb37131",

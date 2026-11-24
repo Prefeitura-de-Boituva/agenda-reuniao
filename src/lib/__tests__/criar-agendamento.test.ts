@@ -113,7 +113,12 @@ describe("POST /api/agendamentos – criação", () => {
         horaFim: bodyValido.horaFim,
       });
       expect(json.criadoEm).toEqual(expect.any(String));
+      expect(json.tokenCancelamento).toEqual(expect.any(String));
+      expect(json.tokenCancelamento.length).toBeGreaterThan(30);
       expect(db.orm.public.Agendamento.create).toHaveBeenCalledTimes(1);
+      expect(_store[0]).toHaveProperty("cancelamentoTokenHash");
+      expect(_store[0].cancelamentoTokenHash).not.toBe(json.tokenCancelamento);
+      expect(json).not.toHaveProperty("cancelamentoTokenHash");
     });
 
     it("persiste exatamente um registro no store", async () => {

@@ -85,6 +85,18 @@ function semearAgendamento(
     });
 }
 
+function semearAgendamentoComToken(nome: string, horaInicio: string, horaFim: string, data: string) {
+  return cy.request({
+    method: "POST",
+    url: "/api/agendamentos",
+    body: { nome, departamento: DEPARTAMENTO, sala: SALA, data, horaInicio, horaFim },
+  }).then((res) => {
+    expect(res.status, "POST /api/agendamentos").to.eq(201);
+    expect(res.body.tokenCancelamento).to.be.a("string");
+    return { id: res.body.id as string, tokenCancelamento: res.body.tokenCancelamento as string };
+  });
+}
+
 /** Abre a grade já na semana que contém a data semeada. */
 function abrirGradeNaData(data: string) {
   cy.visit(`/grade?date=${data}&room=${ROOM_ID}`);
@@ -204,5 +216,21 @@ describe("Cancelamento de agendamento — DELETE /api/agendamentos/[id]", () => 
     })
       .its("status")
       .should("eq", 404);
+  });
+
+  it("mostra link seguro após criar e cancela somente após confirmação no link", () => {
+    const nome = "Teste Cancelamento por Link";
+    limparDia(dataISO);
+    semearAgendamentoComToken(nome, "09:00", "10:00", dataISO).then(({ tokenCancelamento }) => {
+      expect(tokenCancelamento).to.be.a("string").and.have.length.greaterThan(30);
+      cy.visit(`/cancelar/${encodeURIComponent(tokenCancelamento)}`);
+      cy.contains("Confirme abaixo se deseja cancelar esta reserva.").should("be.visible");
+      cy.contains(nome).should("be.visible");
+      cy.contains("button", "Confirmar cancelamento").click();
+      cy.contains("Agendamento cancelado com sucesso.").should("be.visible");
+      cy.request({
+        url: `/api/agendamentos?sala=${encodeURIComponent(SALA)}&data=${dataISO}`,
+      }).its("body").should("have.length", 0);
+    });
   });
 });

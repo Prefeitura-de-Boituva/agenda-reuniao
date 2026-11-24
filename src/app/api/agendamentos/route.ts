@@ -18,6 +18,7 @@ import {
   registrarErroDb,
 } from "@/prisma/errors";
 import type { Models } from "@/prisma/contract.d";
+import { gerarTokenCancelamento, hashTokenCancelamento } from "@/lib/cancelamentoToken";
 
 /**
  * `horaInicio`/`horaFim` são `varchar(5)` no contrato, o que o Prisma 8 expõe
@@ -85,6 +86,7 @@ export async function POST(request: Request) {
     return Response.json({ error: slotError }, { status: 400 });
   }
 
+  const tokenCancelamento = gerarTokenCancelamento();
   const novoAgendamento = {
     id: crypto.randomUUID(),
     nome,
@@ -94,6 +96,7 @@ export async function POST(request: Request) {
     horaInicio: hora(horaInicio),
     horaFim: hora(horaFim),
     criadoEm: new Date().toISOString(),
+    cancelamentoTokenHash: hashTokenCancelamento(tokenCancelamento),
   };
 
   // Checagem de sobreposição e gravação no mesmo `try`: falha de
@@ -121,7 +124,9 @@ export async function POST(request: Request) {
     );
   }
 
-  return Response.json(novoAgendamento, { status: 201 });
+  const { cancelamentoTokenHash, ...dadosPublicos } = novoAgendamento;
+  void cancelamentoTokenHash;
+  return Response.json({ ...dadosPublicos, tokenCancelamento }, { status: 201 });
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -144,7 +149,17 @@ export async function GET(request: Request): Promise<Response> {
     })
       .orderBy((a) => a.horaInicio.asc())
       .all();
-    return Response.json(agendamentos, { status: 200 });
+    const dadosPublicos = agendamentos.map((agendamento) => ({
+      id: agendamento.id,
+      nome: agendamento.nome,
+      departamento: agendamento.departamento,
+      sala: agendamento.sala,
+      data: agendamento.data,
+      horaInicio: agendamento.horaInicio,
+      horaFim: agendamento.horaFim,
+      criadoEm: agendamento.criadoEm,
+    }));
+    return Response.json(dadosPublicos, { status: 200 });
   } catch (erro) {
     registrarErroDb(erro, 'GET /api/agendamentos');
     return Response.json(

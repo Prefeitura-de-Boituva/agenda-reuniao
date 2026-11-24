@@ -11,11 +11,15 @@ import { COOKIE_ACESSO, acessoExigido, tokenValido } from "@/lib/acesso";
 /** Healthcheck do Docker e da Vercel não pode exigir senha. */
 const ROTAS_PUBLICAS = ["/entrar", "/api/acesso", "/api/health"];
 
+function rotaCancelamentoPublica(pathname: string) {
+  return /^\/cancelar\/[^/]+$/.test(pathname) || /^\/api\/cancelamento\/[^/]+$/.test(pathname);
+}
+
 export default function proxy(request: NextRequest) {
   if (!acessoExigido()) return NextResponse.next();
 
   const { pathname } = request.nextUrl;
-  if (ROTAS_PUBLICAS.includes(pathname)) return NextResponse.next();
+  if (ROTAS_PUBLICAS.includes(pathname) || rotaCancelamentoPublica(pathname)) return NextResponse.next();
   if (tokenValido(request.cookies.get(COOKIE_ACESSO)?.value)) {
     return NextResponse.next();
   }
