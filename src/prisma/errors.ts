@@ -34,10 +34,8 @@ function ehViolacaoDeUnique(erro: unknown): boolean {
 
 export function categorizarErroDb(erro: unknown): CategoriaErroDb {
   if (ehViolacaoDeUnique(erro)) return 'conflito';
-  // O client do Prisma 8 lança lazy: sem DATABASE_URL a falha chega como um
-  // erro de leitura de marker, sem relação óbvia com a causa real. Checar a
-  // variável aqui é o que permite dar um diagnóstico claro em vez de
-  // reportar "erro interno" genérico.
+  // `db.ts` exige a URL na inicialização; manter a categoria config também
+  // cobre erros lazy do runtime e deixa explícita a configuração ausente.
   return process.env['DATABASE_URL'] ? 'infra' : 'config';
 }
 

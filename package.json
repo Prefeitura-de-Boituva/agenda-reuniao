@@ -18,7 +18,6 @@
     "db:verify": "prisma db verify",
     "db:plan": "prisma migration plan",
     "db:migrate": "prisma db migrate",
-    "seed": "node src/prisma/seed.ts",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "test:e2e": "cypress run"

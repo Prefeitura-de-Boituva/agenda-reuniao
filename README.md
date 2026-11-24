@@ -64,7 +64,7 @@ npx cypress run --config baseUrl=http://localhost:3002   # ou force a porta cert
 A porta **3001** pertence ao container de produção local (seções "Docker" abaixo), não ao
 `next dev`; os specs de e2e nunca devem apontar para ela, porque ela grava no Neon real.
 
-`cancelamento.cy.ts` semeia e remove agendamentos pela API real, então exige
+`cancelamento.cy.ts` cria e remove agendamentos pela API real, então exige
 `DATABASE_URL` configurada no `.env`. Sem banco, a rota responde 500 e a suíte se marca
 como *pendente* (skip) em vez de reportar falha de produto; os demais specs não dependem
 de banco.
@@ -95,7 +95,7 @@ DIRECT_URL="postgresql://USUARIO:SENHA@ep-xxxx.regiao.aws.neon.tech/neondb?sslmo
 
 > O `.env` está no `.gitignore`. Nunca commite credenciais.
 
-Para desenvolver sem Neon, use a opção 1 do `.env.example` (Postgres local):
+Para desenvolver com um banco local, use o Postgres do Compose:
 
 ```bash
 docker compose up -d postgres   # só o banco; o serviço app ocuparia a 3001
@@ -103,10 +103,8 @@ npm run db:migrate              # aplica migrations/app/ no banco local
 ```
 
 O `next dev` lê o `.env` apenas ao subir: depois de criá-lo ou alterá-lo,
-reinicie o servidor. Sem `DATABASE_URL`, a API responde 500
-("Erro interno ao criar agendamento.") e a grade ainda mostra os slots como
-livres, porque o GET falha em silêncio — o sintoma parece bug de tela, mas é
-banco ausente.
+reinicie o servidor. `DATABASE_URL` é obrigatória: sem ela, o cliente real do
+banco não inicializa e nenhum dado é salvo em memória.
 
 ### 2. Verificar a conexão e o schema
 
@@ -117,15 +115,7 @@ npm run db:verify
 Esperado: `Database marker and schema match contract`. O banco do Neon já está
 migrado (migrations em `migrations/app/`).
 
-### 3. Popular dados de teste (opcional)
-
-```bash
-npm run seed
-```
-
-O seed é idempotente e cria 5 agendamentos para os próximos dias.
-
-### 4. Alterar o contrato (fluxo futuro)
+### 3. Alterar o contrato (fluxo futuro)
 
 ```bash
 # 1. edite src/prisma/contract.prisma
@@ -160,8 +150,8 @@ npx prisma db migrate --db "<DIRECT_URL de produção>"
 npx prisma db verify  --db "<DIRECT_URL de produção>" --strict
 ```
 
-> **Atenção:** não rode `npm run seed` em produção. O seed insere agendamentos
-> de demonstração e é destinado apenas ao ambiente de desenvolvimento.
+> Não há seed de demonstração no projeto. Testes automatizados usam mocks
+> isolados e não inserem exemplos no banco.
 
 O banco de produção começa **vazio** (somente schema). Para subir a aplicação
 apontando para ele, use `docker-compose.prod.yml` com `DATABASE_URL` definida.
@@ -216,7 +206,7 @@ APP_PORT=3002
 `DATABASE_URL` deve ser a string **pooled** do Neon. A `DIRECT_URL` (sem
 `-pooler`) é usada apenas pela CLI, fora do container. A imagem `standalone` não
 inclui a CLI do Prisma, por isso as migrations são aplicadas antes do deploy.
-Não rode `npm run seed` em produção.
+Não há seed de demonstração; use apenas reservas criadas pelo app.
 
 `ACCESS_PASSWORD` é obrigatória neste compose: sem ela o `docker compose up`
 falha com uma mensagem explícita, em vez de publicar uma agenda fechada. É a
@@ -318,10 +308,10 @@ No painel do projeto (*Settings → Environment Variables*), adicione em
 | --- | --- | --- |
 | `DATABASE_URL` | string **pooled** do Neon (host `-pooler`) | mesma do `.env.production.local` |
 | `ACCESS_PASSWORD` | senha do grupo | obrigatória; sem ela o acesso fica fechado |
+| `CRON_SECRET` | segredo aleatório de pelo menos 32 caracteres | protege a rota de retenção |
 
 `DIRECT_URL` **não** vai para a Vercel: ela só serve à CLI do Prisma, que roda a
-partir do repositório. Nunca commite credenciais nem use `npm run seed` no banco
-de produção.
+partir do repositório. Nunca commite credenciais.
 
 ### 2. Banco
 
@@ -346,6 +336,7 @@ vercel login                              # a conta e a vinculação ficam por s
 vercel link                               # cria/vincula o projeto (gera .vercel/, já no .gitignore)
 vercel env add DATABASE_URL production    # string pooled do Neon; repita para preview
 vercel env add ACCESS_PASSWORD production # idem para preview
+vercel env add CRON_SECRET production     # segredo aleatório; não compartilhe
 vercel --prod                             # publica e devolve a URL
 ```
 
@@ -385,9 +376,22 @@ Com o cookie do último comando, repita o `GET /api/agendamentos`: deve responde
   Neon e no `localStorage` do navegador.
 - Sem `ACCESS_PASSWORD` o portão fecha, não abre — um deploy sem a env var não
   expõe a agenda, mas também não funciona.
-- Sem `DATABASE_URL` o `src/prisma/db.ts` cai num **mock em memória**: o build passa
-  e a UI responde, mas nada persiste e tudo se perde a cada cold start. Confirme
-  `database: ok` no `?db=1` antes de distribuir a URL.
+- Sem `DATABASE_URL`, o cliente real não inicializa; configure a conexão antes de
+  iniciar o app e confirme `database: ok` no `?db=1`.
+
+## Retenção de agendamentos
+
+Agendamentos são mantidos por oito meses após a data da reunião. A rota
+`/api/internal/retencao-agendamentos` é protegida por `CRON_SECRET` e executa
+dry-run por padrão. Ao configurar `CRON_SECRET` na Vercel, o Cron diário envia o
+header `Authorization: Bearer <CRON_SECRET>` e chama essa rota sem parâmetro,
+apenas informando quantas linhas seriam elegíveis; ele não apaga registros.
+
+O endpoint permanece somente em modo de relatório; ele não oferece exclusão
+remota nesta etapa. Habilitar a exclusão exige revisão dos relatórios,
+confirmação de backup e uma mudança explícita no código. O limite usa o calendário de
+`America/Sao_Paulo`: registros com `data < hoje - 8 meses` são elegíveis; a data
+limite e datas posteriores são preservadas.
 
 ## Scripts disponíveis
 
@@ -399,7 +403,6 @@ Com o cookie do último comando, repita o `GET /api/agendamentos`: deve responde
 | `npm run lint`         | Executa o ESLint                                   |
 | `npm test`             | Executa os testes em modo watch                    |
 | `npm run test:run`     | Executa os testes uma vez                          |
-| `npm run seed`         | Insere agendamentos de teste (idempotente)         |
 | `npm run db:verify`    | Confere marker e schema do banco contra o contrato |
 | `npm run db:plan`      | Planeja uma migration a partir do contrato         |
 | `npm run db:migrate`   | Aplica as migrations planejadas                    |
