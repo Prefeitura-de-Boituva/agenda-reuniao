@@ -47,6 +47,9 @@ test-create.bat
 
 # skills instaladas pelo postinstall (o --ignore-scripts do vercel.json não as gera lá)
 .agents
+.qoder
 .claude
 .cursor
 .devin
+.kilo
+.tmp-*

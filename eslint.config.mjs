@@ -15,6 +15,13 @@ const eslintConfig = defineConfig([
     // Artefatos gerados pelo `prisma contract emit` (não seguem nossas regras):
     "src/prisma/contract.d.ts",
     "migrations/snapshots/**",
+    // Skills e metadados locais de ferramentas de agentes:
+    ".agents/**",
+    ".qoder/**",
+    ".claude/**",
+    ".cursor/**",
+    ".devin/**",
+    ".kilo/**",
     // Scripts CommonJS de teste manual da API, executados direto no Node:
     "test-post.js",
     "test-post.cjs",

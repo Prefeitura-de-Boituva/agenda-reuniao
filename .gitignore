@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+/.tmp-*
 
 # debug
 npm-debug.log*
@@ -48,10 +49,15 @@ node_modules/
 dist/
 .env
 
-/.agents/skills/prisma-8/
-/.claude/skills/prisma-8/
-/.cursor/skills/prisma-8/
-/.devin/skills/prisma-8/
+# metadados e skills locais de ferramentas de agentes
+/.agents/
+/.qoder/
+/.claude/
+/.cursor/
+/.devin/
+/.kilo/
+/AGENTS.md
+/CLAUDE.md
 .neon
 
 # artefatos do Cypress (screenshotOnRunFailure)
