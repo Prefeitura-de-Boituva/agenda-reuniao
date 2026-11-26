@@ -1,423 +1,129 @@
-# Agenda-Reuniao
+# Agenda de Reuniões
 
-Aplicação web para agendamento de salas de reunião, substituindo o controle
-manual em papel. Permite consultar disponibilidade, criar agendamentos e
-cancelar reservas informando o departamento.
+Aplicação web da Prefeitura de Boituva para reservar as salas de reunião.
+Substitui o controle em papel: a pessoa consulta a semana, escolhe sala e
+horário, e cancela a própria reserva com a senha que definiu ao agendar.
+
+## Regras do produto
+
+- **Salas:** Azul, Verde e Amarela.
+- **Janela:** segunda a sexta, das 08:00 às 17:00, em blocos de 30 minutos.
+- **Agendar** exige nome, departamento, sala, data, horário e uma **senha de
+  cancelamento** (4 a 64 caracteres). São recusados data passada, horário já
+  passado no dia atual e faixa que conflite com outra reserva.
+- **Cancelar** só com a senha informada na criação. A senha vira hash scrypt no
+  banco e nunca volta em resposta da API. Reservas antigas, criadas antes desse
+  modelo, continuam canceláveis pelo departamento.
+- **Acesso:** uma senha compartilhada do grupo (`ACCESS_PASSWORD`), digitada em
+  `/entrar`. Não há login por pessoa nem trilha de quem fez cada ação.
+- **Retenção:** a rota interna `/api/internal/retencao-agendamentos` reporta o
+  que passou de oito meses da data da reunião. Ela roda sempre em dry-run;
+  apagar exige mudança explícita no código.
+- **Fuso:** as regras de data e horário usam `America/Sao_Paulo` fixo, em
+  `src/lib/fuso.ts`. Não reintroduza getters locais de `new Date()` nelas.
 
 ## Stack
 
-| Componente       | Tecnologia                              |
-| ---------------- | --------------------------------------- |
-| Frontend         | Next.js (App Router)                    |
-| Backend          | Next.js                                 |
-| Linguagem        | TypeScript                              |
-| Estilização      | Tailwind CSS                            |
-| Banco de dados   | PostgreSQL (Neon) via Prisma 8          |
+| Componente     | Tecnologia                     |
+| -------------- | ------------------------------ |
+| Frontend       | Next.js (App Router)           |
+| Backend        | Next.js (rotas de API)         |
+| Linguagem      | TypeScript                     |
+| Estilização    | Tailwind CSS                   |
+| Banco de dados | PostgreSQL (Neon) via Prisma 8 |
 
-## Pré-requisitos
+## Rodar localmente
 
-- Node.js 24 (fixado em `.nvmrc` e em `engines.node`)
-- npm (vem com o Node.js)
-- Uma connection string do Neon (ou um PostgreSQL local >= 15)
-
-## Como rodar localmente
+Requer Node.js 24 (fixado em `.nvmrc` e `engines.node`) e uma connection string
+do Neon — `DATABASE_URL` é obrigatória, sem ela a aplicação não sobe.
 
 ```bash
-# instalar dependências
 npm install
-
-# configurar o ambiente (veja a seção "Banco de dados" abaixo)
-cp .env.example .env
-
-# iniciar servidor de desenvolvimento
-npm run dev
+cp .env.example .env    # preencha DATABASE_URL (com -pooler) e DIRECT_URL (sem)
+npm run dev             # http://localhost:3000
 ```
 
-Abra [http://localhost:3000](http://localhost:3000) no navegador.
+O `next dev` só lê o `.env` ao subir: depois de criar ou editar o arquivo,
+reinicie o servidor.
 
-## Testes automatizados e portas
+## Banco de dados
 
-| Comando | O que roda | Precisa de |
-| --- | --- | --- |
-| `npm run test:run` | testes unitários (vitest), sem servidor | nenhuma porta |
-| `npm run test:e2e` | specs em `cypress/e2e/` contra a UI | `npm run dev` na **3000** |
-
-O Cypress lê `http://localhost:3000` do `cypress.config.ts`. Se essa porta já estiver
-ocupada por outra cópia do projeto, o `next dev` sobe sozinho na primeira livre (3002 em
-diante) e o `npm run test:e2e` passa a testar **a cópia errada, sem avisar**. Antes de
-rodar, confirme que o processo da 3000 pertence ao diretório desejado:
+O projeto é contract-first no Prisma 8: o contrato está em
+`src/prisma/contract.prisma`, e os artefatos gerados (`contract.json`,
+`contract.d.ts`) são versionados junto das migrations em `migrations/app/`.
 
 ```bash
-netstat -ano | findstr :3000        # anote o PID da coluna seguinte
+npm run db:verify        # marker e schema do banco devem bater com o contrato
+
+# para alterar o contrato:
+npm run contract:emit    # regenera contract.json / contract.d.ts
+npm run db:plan          # planeja a migration; revise o migration.ts gerado
+npm run db:migrate       # aplica no banco da DIRECT_URL
 ```
 
-```powershell
-# confirme que o PID pertence ao diretório que você quer testar
-# (o wmic foi removido do Windows 11 24H2; use Get-CimInstance)
-powershell -Command "(Get-CimInstance Win32_Process -Filter 'ProcessId=<PID>').CommandLine"
-```
-
-```bash
-npx cypress run --config baseUrl=http://localhost:3002   # ou force a porta certa
-```
-
-A porta **3001** pertence ao container de produção local (seções "Docker" abaixo), não ao
-`next dev`; os specs de e2e nunca devem apontar para ela, porque ela grava no Neon real.
-
-`cancelamento.cy.ts` cria e remove agendamentos pela API real, então exige
-`DATABASE_URL` configurada no `.env`. Sem banco, a rota responde 500 e a suíte se marca
-como *pendente* (skip) em vez de reportar falha de produto; os demais specs não dependem
-de banco.
-
-
-## Banco de dados (Neon)
-
-O projeto usa **Prisma 8** (contract-first). O contrato está em
-`src/prisma/contract.prisma`; os artefatos `contract.json` e `contract.d.ts` são
-gerados e versionados.
-
-### 1. Variáveis de ambiente
-
-Copie `.env.example` para `.env` e preencha com os dados do painel do Neon
-(*Connection Details*):
-
-```env
-# Runtime da aplicação — string com `-pooler`
-DATABASE_URL="postgresql://USUARIO:SENHA@ep-xxxx-pooler.regiao.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-
-# CLI/migrations — string sem `-pooler` (DDL não passa pelo PgBouncer)
-DIRECT_URL="postgresql://USUARIO:SENHA@ep-xxxx.regiao.aws.neon.tech/neondb?sslmode=require"
-```
-
-- `DATABASE_URL` é lida em runtime por `src/prisma/db.ts`.
-- `DIRECT_URL` é lida pela CLI do Prisma (`prisma.config.ts`). Se ela não
-  existir, a CLI usa `DATABASE_URL` como fallback.
-
-> O `.env` está no `.gitignore`. Nunca commite credenciais.
-
-Para desenvolver com um banco local, use o Postgres do Compose:
-
-```bash
-docker compose up -d postgres   # só o banco; o serviço app ocuparia a 3001
-npm run db:migrate              # aplica migrations/app/ no banco local
-```
-
-O `next dev` lê o `.env` apenas ao subir: depois de criá-lo ou alterá-lo,
-reinicie o servidor. `DATABASE_URL` é obrigatória: sem ela, o cliente real do
-banco não inicializa e nenhum dado é salvo em memória.
-
-### 2. Verificar a conexão e o schema
-
-```bash
-npm run db:verify
-```
-
-Esperado: `Database marker and schema match contract`. O banco do Neon já está
-migrado (migrations em `migrations/app/`).
-
-### 3. Alterar o contrato (fluxo futuro)
-
-```bash
-# 1. edite src/prisma/contract.prisma
-npm run contract:emit      # regenera contract.json / contract.d.ts
-npm run db:plan            # planeja a migration (revisar o migration.ts gerado)
-npm run db:migrate         # aplica no banco apontado por DIRECT_URL/DATABASE_URL
-```
-
-### 5. Criar o ambiente de produção (issue #28)
-
-O ambiente de produção usa um **projeto Neon separado** (`agenda-reuniao-prod`),
-com banco vazio. O projeto atual continua sendo o de desenvolvimento.
-
-```bash
-# autenticar a CLI do Neon (uma vez)
-npx neonctl auth
-
-# criar o projeto na mesma região do ambiente de desenvolvimento
-npx neonctl projects create --name agenda-reuniao-prod --region-id aws-us-east-2
-
-# obter as duas connection strings
-npx neonctl connection-string --project-id <id> --pooled   # DATABASE_URL
-npx neonctl connection-string --project-id <id>            # DIRECT_URL
-```
-
-Guarde as URLs em `.env.production.local` (ignorado pelo Git) ou nas variáveis
-de ambiente do servidor. Nunca commite credenciais.
-
-```bash
-# aplicar as migrations no banco de produção (string direta, sem -pooler)
-npx prisma db migrate --db "<DIRECT_URL de produção>"
-npx prisma db verify  --db "<DIRECT_URL de produção>" --strict
-```
-
-> Não há seed de demonstração no projeto. Testes automatizados usam mocks
-> isolados e não inserem exemplos no banco.
-
-O banco de produção começa **vazio** (somente schema). Para subir a aplicação
-apontando para ele, use `docker-compose.prod.yml` com `DATABASE_URL` definida.
-
-## Docker
-
-### Desenvolvimento (Postgres local)
-
-```bash
-docker compose up -d --build
-```
-
-Sobe a aplicação em `http://localhost:3001` e um Postgres local.
-
-A imagem roda com `NODE_ENV=production`, então o portão de senha vale aqui
-também: defina `ACCESS_PASSWORD` no `.env` antes de subir, senão a aplicação
-fica fechada em `/entrar` (veja [Porta de entrada](#porta-de-entrada-senha-do-grupo)).
-Para desenvolver sem login, use `npm run dev` na 3000.
-
-### Local com Neon (sem Caddy)
-
-Para rodar a aplicação em Docker usando o Neon remoto, sem proxy reverso e sem
-TLS local:
-
-```bash
-# 1. crie/atualize o arquivo de ambiente
-cp .env.production.example .env.production.local
-
-# 2. preencha DATABASE_URL (pooled), DIRECT_URL (direta) e ACCESS_PASSWORD
-#    O .env.production.local é ignorado pelo Git.
-
-# 3. aplique/revalide as migrations pela conexão direta
-npx prisma db migrate --db "<DIRECT_URL>"
-npx prisma db verify  --db "<DIRECT_URL>" --strict
-
-# 4. build e subida
-docker compose -f docker-compose.prod.yml \
-  --env-file .env.production.local \
-  up -d --build
-```
-
-A aplicação fica disponível em `http://localhost:3001`. A porta pode ser
-alterada com `APP_PORT` no `.env.production.local`:
-
-```env
-APP_PORT=3002
-```
-
-> O compose de desenvolvimento (`docker-compose.yml`) também usa a porta
-> `3001`. Não rode os dois ao mesmo tempo sem trocar a porta.
-
-`DATABASE_URL` deve ser a string **pooled** do Neon. A `DIRECT_URL` (sem
-`-pooler`) é usada apenas pela CLI, fora do container. A imagem `standalone` não
-inclui a CLI do Prisma, por isso as migrations são aplicadas antes do deploy.
-Não há seed de demonstração; use apenas reservas criadas pelo app.
-
-`ACCESS_PASSWORD` é obrigatória neste compose: sem ela o `docker compose up`
-falha com uma mensagem explícita, em vez de publicar uma agenda fechada. É a
-senha que os colaboradores digitam em `/entrar`.
-
-**Segurança:** rotacione a senha do role do Neon se ela tiver sido exposta e
-atualize `DATABASE_URL`/`DIRECT_URL` no `.env.production.local`. O arquivo não
-deve ser versionado nem copiado para dentro da imagem.
-
-Para checar:
-
-```bash
-curl -fsS http://localhost:3001/api/health
-curl -fsS "http://localhost:3001/api/health?db=1"
-
-docker compose -f docker-compose.prod.yml \
-  --env-file .env.production.local ps
-
-docker inspect --format '{{.State.Health.Status}}' \
-  "$(docker compose -f docker-compose.prod.yml \
-    --env-file .env.production.local ps -q app)"
-
-docker compose -f docker-compose.prod.yml \
-  --env-file .env.production.local logs -f --tail=100
-```
-
-> O healthcheck padrão não consulta o Neon de propósito: uma consulta a cada
-> 30s impediria a suspensão automática do banco. `?db=1` é para uso manual.
-
-Para parar:
-
-```bash
-docker compose -f docker-compose.prod.yml \
-  --env-file .env.production.local down
-```
-
-**Rollback:** a imagem é tagueada com `${TAG:-latest}`. Para voltar a um commit
-anterior:
-
-```bash
-git checkout <commit-anterior>
-TAG=<commit-anterior> docker compose -f docker-compose.prod.yml \
-  --env-file .env.production.local up -d --build
-```
-
-> Rollback da imagem não desfaz migrations. Se houve mudança de schema, faça
-> backup/snapshot do Neon antes de aplicar e planeje o rollback do banco.
-
-Sem Caddy, não há HTTPS nem domínio configurado neste ambiente. Use o acesso
-local ou coloque a aplicação atrás de um proxy/WAF se for expô-la a outras
-máquinas.
-
-## Porta de entrada (senha do grupo)
-
-Não há login por usuário: a aplicação inteira fica atrás de **uma senha
-compartilhada**, definida na variável `ACCESS_PASSWORD`. Quem tem a senha pode
-criar e cancelar reservas — os registros continuam identificados apenas pelo
-nome/departamento digitados no formulário.
-
-| Situação | Comportamento |
-| --- | --- |
-| `npm run dev` sem `ACCESS_PASSWORD` | aberto (o Cypress não precisa de login) |
-| `npm run dev` com `ACCESS_PASSWORD` | exige a senha em `/entrar` |
-| Produção **sem** `ACCESS_PASSWORD` | **fechado**: páginas redirecionam para `/entrar` e o login responde `503` |
-| Produção com `ACCESS_PASSWORD` | exige a senha em `/entrar` |
-
-O portão é o `src/proxy.ts` (o antigo *middleware*, renomeado no Next 16) e roda
-no runtime Node.js. Rotas públicas: `/entrar`, `/api/acesso` e `/api/health` —
-esta última porque o healthcheck do Docker e da Vercel não pode exigir senha.
-Fora delas, `/api/*` responde `401` em JSON e as páginas redirecionam para
-`/entrar?prox=<caminho original>`.
-
-O cookie `agenda-acesso` é `httpOnly`, `sameSite=lax`, dura 7 dias e guarda um
-HMAC-SHA256 da senha, não a senha. Trocar `ACCESS_PASSWORD` invalida todos os
-cookies emitidos. Para sair, `DELETE /api/acesso` limpa o cookie.
-
-Limites conhecidos (aceitos para a validação com usuários reais da issue #29):
-uma senha só, sem trilha de quem fez cada ação; sem limite de tentativas de
-login; sem 2FA. Não é um controle de acesso por pessoa.
-
-## Deploy na Vercel
-
-O repositório já está preparado: `vercel.json` (framework `nextjs`,
-`npm ci --ignore-scripts`, região `iad1`), `.nvmrc` + `engines.node` em 24 e
-`output: "standalone"` ligado **apenas** quando `DOCKER_BUILD=1` (a imagem
-Docker). Na Vercel o build segue o padrão do adapter.
-
-> O fuso do servidor não importa mais: `src/lib/fuso.ts` fixa
-> `America/Sao_Paulo` em RN12/RN16 e na grade. A Vercel roda em UTC e ignora
-> `TZ`; sem isso, entre 21h e 24h de Boituva a regra de "horário passado" era
-> pulada. Não reintroduza `new Date()` com getters locais nas regras.
-
-### 1. Variáveis de ambiente
-
-No painel do projeto (*Settings → Environment Variables*), adicione em
-**Production e Preview** (preview sem senha vira uma URL pública da agenda):
-
-| Variável | Valor | Observação |
-| --- | --- | --- |
-| `DATABASE_URL` | string **pooled** do Neon (host `-pooler`) | mesma do `.env.production.local` |
-| `ACCESS_PASSWORD` | senha do grupo | obrigatória; sem ela o acesso fica fechado |
-| `CRON_SECRET` | segredo aleatório de pelo menos 32 caracteres | protege a rota de retenção |
-
-`DIRECT_URL` **não** vai para a Vercel: ela só serve à CLI do Prisma, que roda a
-partir do repositório. Nunca commite credenciais.
-
-### 2. Banco
-
-As migrations não rodam no build da Vercel. Antes do primeiro deploy, a partir
-da sua máquina:
-
-```bash
-npm run db:verify                      # espera: marker e schema batem com o contrato
-# se houver migration pendente:
-npm run db:plan && npm run db:migrate  # usam DIRECT_URL (sem -pooler)
-```
-
-Use a região `iad1` (Washington) para as functions: o Neon está em `us-east-1`.
-A região padrão brasileira (`gru1`) acrescenta uma ida e volta ao banco em cada
-consulta.
-
-### 3. Publicar
-
-```bash
-npm i -g vercel
-vercel login                              # a conta e a vinculação ficam por sua conta
-vercel link                               # cria/vincula o projeto (gera .vercel/, já no .gitignore)
-vercel env add DATABASE_URL production    # string pooled do Neon; repita para preview
-vercel env add ACCESS_PASSWORD production # idem para preview
-vercel env add CRON_SECRET production     # segredo aleatório; não compartilhe
-vercel --prod                             # publica e devolve a URL
-```
-
-`vercel --prod` sobe **o diretório local**, não o GitHub — não depende de push. Já o
-painel (*Add New → Project → Import*) constrói o branch remoto: portão, fuso explícito
-e `vercel.json` só chegam lá depois que o merge que os contém for enviado. O nome
-`agenda-reuniao` só fica em `agenda-reuniao.vercel.app` se estiver livre; caso
-contrário a Vercel sugere `agenda-reuniao-<escopo>.vercel.app`.
-
-Para um domínio institucional, adicione-o em *Settings → Domains* e siga os
-registros DNS indicados — `*.vercel.app` não é um endereço da Prefeitura.
-
-### 4. Conferir depois do deploy
-
-```bash
-curl -fsS https://<sua-url>/api/health
-curl -fsS "https://<sua-url>/api/health?db=1"   # database: ok
-
-curl -i https://<sua-url>/                      # 307 para /entrar
-curl -i https://<sua-url>/api/agendamentos      # 401
-curl -i -X POST https://<sua-url>/api/acesso \
-  -H 'content-type: application/json' \
-  -d '{"senha":"<ACCESS_PASSWORD>"}'            # 200 + Set-Cookie: agenda-acesso
-```
-
-Com o cookie do último comando, repita o `GET /api/agendamentos`: deve responder
-`200`. Só então distribua a URL para os colaboradores (issue #29).
-
-### 5. Limites do plano e da hospedagem
-
-- **Hobby não é permitido para uso de produção** nos termos da Vercel. Para a
-  Prefeitura usar de forma contínua, o plano precisa ser Pro (ou outra
-  hospedagem). Hobby serve apenas para uma validação curta e interna.
-- Cada push na branch vinculada gera um deploy novo; cada PR gera uma URL de
-  preview. Todas herdam as env vars do ambiente correspondente.
-- A função serverless é stateless: nada de gravar em disco. O estado vive no
-  Neon e no `localStorage` do navegador.
-- Sem `ACCESS_PASSWORD` o portão fecha, não abre — um deploy sem a env var não
-  expõe a agenda, mas também não funciona.
-- Sem `DATABASE_URL`, o cliente real não inicializa; configure a conexão antes de
-  iniciar o app e confirme `database: ok` no `?db=1`.
-
-## Retenção de agendamentos
-
-Agendamentos são mantidos por oito meses após a data da reunião. A rota
-`/api/internal/retencao-agendamentos` é protegida por `CRON_SECRET` e executa
-dry-run por padrão. Ao configurar `CRON_SECRET` na Vercel, o Cron diário envia o
-header `Authorization: Bearer <CRON_SECRET>` e chama essa rota sem parâmetro,
-apenas informando quantas linhas seriam elegíveis; ele não apaga registros.
-
-O endpoint permanece somente em modo de relatório; ele não oferece exclusão
-remota nesta etapa. Habilitar a exclusão exige revisão dos relatórios,
-confirmação de backup e uma mudança explícita no código. O limite usa o calendário de
-`America/Sao_Paulo`: registros com `data < hoje - 8 meses` são elegíveis; a data
-limite e datas posteriores são preservadas.
-
-## Scripts disponíveis
-
-| Comando                | Descrição                                          |
-| ---------------------- | -------------------------------------------------- |
-| `npm run dev`          | Inicia o servidor de desenvolvimento               |
-| `npm run build`        | Gera o build de produção                           |
-| `npm run start`        | Inicia o build de produção                         |
-| `npm run lint`         | Executa o ESLint                                   |
-| `npm test`             | Executa os testes em modo watch                    |
-| `npm run test:run`     | Executa os testes uma vez                          |
-| `npm run db:verify`    | Confere marker e schema do banco contra o contrato |
-| `npm run db:plan`      | Planeja uma migration a partir do contrato         |
-| `npm run db:migrate`   | Aplica as migrations planejadas                    |
-| `npm run contract:emit`| Regenera `contract.json` / `contract.d.ts`         |
+DDL não passa pelo PgBouncer: as migrations usam `DIRECT_URL` (string sem
+`-pooler`) e a aplicação usa `DATABASE_URL` (string pooled), lida em runtime por
+`src/prisma/db.ts`. Não há seed de demonstração: as reservas vêm da aplicação ou
+dos testes.
+
+## Testes
+
+| Comando            | O que roda                          | Precisa de                             |
+| ------------------ | ----------------------------------- | -------------------------------------- |
+| `npm run test:run` | testes unitários (vitest)           | nada                                   |
+| `npm run test:e2e` | specs em `cypress/e2e/` contra a UI | `npm run dev` na 3000 e `DATABASE_URL` |
+
+Os specs de e2e gravam e limpam reservas no banco configurado, por isso dependem
+do `DATABASE_URL` do `.env`. Se a 3000 já estiver ocupada por outra cópia do
+projeto, o `next dev` sobe em outra porta e o Cypress continua testando a 3000:
+confirme antes a quem pertence o processo da porta.
+
+## Variáveis de ambiente
+
+| Variável          | Para quê                                      |
+| ----------------- | --------------------------------------------- |
+| `DATABASE_URL`    | conexão da aplicação (Neon, string pooled)    |
+| `DIRECT_URL`      | conexão da CLI do Prisma, para migrations     |
+| `ACCESS_PASSWORD` | senha do grupo cobrada em `/entrar`           |
+| `CRON_SECRET`     | protege `/api/internal/retencao-agendamentos` |
+
+Os `.env*` locais estão no `.gitignore`. Nunca commite credenciais.
+
+## Produção
+
+O app roda na Vercel (região `iad1`, perto do Neon em `us-east-1`) e usa um
+projeto Neon separado do de desenvolvimento. As migrations não rodam no build:
+aplique-as da sua máquina (`npm run db:migrate`) antes do deploy e confirme com
+`npm run db:verify`. Sem `ACCESS_PASSWORD` o portão fecha — páginas
+redirecionam para `/entrar` e a API responde 401. Para rodar a imagem local, o
+`docker-compose.prod.yml` sobe a aplicação na porta 3001.
+
+## Scripts
+
+| Comando                 | Descrição                                          |
+| ----------------------- | -------------------------------------------------- |
+| `npm run dev`           | Inicia o servidor de desenvolvimento               |
+| `npm run build`         | Gera o build de produção                           |
+| `npm run start`         | Inicia o build de produção                         |
+| `npm run lint`          | Executa o ESLint                                   |
+| `npm test`              | Executa os testes em modo watch                    |
+| `npm run test:run`      | Executa os testes uma vez                          |
+| `npm run test:e2e`      | Executa o Cypress contra o `npm run dev`           |
+| `npm run db:verify`     | Confere marker e schema do banco contra o contrato |
+| `npm run db:plan`       | Planeja uma migration a partir do contrato         |
+| `npm run db:migrate`    | Aplica as migrations planejadas                    |
+| `npm run contract:emit` | Regenera `contract.json` / `contract.d.ts`         |
 
 ## Estrutura de pastas
 
 ```
 ├── src/
-│   ├── app/            # Rotas da aplicação (App Router) e API
-│   ├── components/     # Componentes de UI (agenda, formulários)
-│   ├── lib/            # Regras de negócio e utilitários
-│   └── prisma/         # Contrato, artefatos e cliente do banco
-├── migrations/         # Migrations do Prisma 8 (app + snapshots)
-├── public/             # Arquivos estáticos
-├── prisma.config.ts    # Configuração da CLI do Prisma 8
-└── package.json
+│   ├── app/            # rotas (App Router) e API
+│   ├── components/     # UI da agenda e formulários
+│   ├── lib/            # regras de negócio e utilitários
+│   └── prisma/         # contrato, artefatos e cliente do banco
+├── cypress/e2e/        # testes de UI
+├── migrations/         # migrations do Prisma 8 (app + snapshots)
+├── public/             # arquivos estáticos
+└── prisma.config.ts    # configuração da CLI do Prisma 8
 ```
