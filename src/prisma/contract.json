@@ -71,6 +71,13 @@
         "models": {
           "Agendamento": {
             "fields": {
+              "cancelamentoSenha": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "criadoEm": {
                 "nullable": false,
                 "type": {
@@ -149,6 +156,9 @@
             "relations": {},
             "storage": {
               "fields": {
+                "cancelamentoSenha": {
+                  "column": "cancelamentoSenha"
+                },
                 "criadoEm": {
                   "column": "criadoEm"
                 },
@@ -201,6 +211,11 @@
                 }
               ],
               "columns": {
+                "cancelamentoSenha": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "criadoEm": {
                   "codecId": "pg/timestamptz-string@1",
                   "default": {
@@ -310,7 +325,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "ca204f28bb9bd19f3bf82672d05df7c91ab78b3791253d5ea489d1901e28dfcc"
+    "storageHash": "eeb525f4604698103fccffc85c1f42d4cd7567d0df1a75d4bcdb2b7b7ad264f9"
   },
   "execution": {
     "executionHash": "43bf20e8bf58a8241ae2535c17f7a6fa8337ffdd5c26007207045c984cb37131",

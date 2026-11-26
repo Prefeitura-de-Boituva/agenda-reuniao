@@ -14,6 +14,7 @@ type AgendamentoRecord = {
   horaInicio: string;
   horaFim: string;
   criadoEm: string;
+  cancelamentoSenha: string;
 };
 
 /**
@@ -66,6 +67,7 @@ const bodyValido = {
   data: "2026-09-21", // futura: não cai na regra RN12
   horaInicio: "10:00",
   horaFim: "11:00",
+  senha: "senha-da-maria",
 };
 
 const criarRequest = (body: unknown): Request =>
@@ -114,6 +116,10 @@ describe("POST /api/agendamentos – criação", () => {
       });
       expect(json.criadoEm).toEqual(expect.any(String));
       expect(db.orm.public.Agendamento.create).toHaveBeenCalledTimes(1);
+      // A senha é gravada como hash com salt e não volta em lugar nenhum.
+      expect(_store[0].cancelamentoSenha).toMatch(/^scrypt\$/);
+      expect(_store[0].cancelamentoSenha).not.toContain(bodyValido.senha);
+      expect(JSON.stringify(json)).not.toMatch(/cancelamentoSenha|senha-da-maria/);
     });
 
     it("persiste exatamente um registro no store", async () => {
@@ -132,6 +138,24 @@ describe("POST /api/agendamentos – criação", () => {
     it("rejeita corpo que não é objeto", async () => {
       const { status } = await post("[]");
       expect(status).toBe(400);
+    });
+
+    it("rejeita senha ausente", async () => {
+      const semSenha: Partial<typeof bodyValido> = { ...bodyValido };
+      delete semSenha.senha;
+      const { status, json } = await post(semSenha);
+
+      expect(status).toBe(400);
+      expect(json.error).toBe("A senha deve ter ao menos 4 caracteres.");
+      expect(_store).toHaveLength(0);
+    });
+
+    it("rejeita senha mais curta que o mínimo depois de normalizada", async () => {
+      // Três espaços ao redor não contam: a rota normaliza antes de medir.
+      const { status, json } = await post({ ...bodyValido, senha: "  ab  " });
+
+      expect(status).toBe(400);
+      expect(json.error).toBe("A senha deve ter ao menos 4 caracteres.");
     });
 
     it("rejeita campo ausente com a mensagem original", async () => {

@@ -65,6 +65,7 @@ describe("RN12 – bloqueio de agendamento em horário passado", () => {
       data: today,
       horaInicio: "09:00", // passado em relação ao horário atual (10:00)
       horaFim: "10:30",
+      senha: "senha-de-teste",
     });
 
     const response = await POST(request);

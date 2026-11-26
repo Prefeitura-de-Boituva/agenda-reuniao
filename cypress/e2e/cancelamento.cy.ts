@@ -3,8 +3,9 @@
 /**
  * Cancelamento de agendamento — DELETE /api/agendamentos/[id]
  *
- * Cobre o fluxo completo pela UI: abrir a modal, errar o departamento (403),
- * acertar em caixa alta (200, case-insensitive) e confirmar a remoção da grade.
+ * Cobre o fluxo completo pela UI: criar a reserva já cadastrando a senha, errar
+ * a senha (403), acertar em caixa alta (200, normalizada no servidor) e confirmar
+ * a remoção da grade.
  *
  * O banco é um store em memória por processo, então o agendamento semeado via
  * `cy.request` é o mesmo que a tela lê e o mesmo que a rota DELETE remove.
@@ -15,12 +16,17 @@
  *
  * Cada teste começa limpando o dia, para não depender (nem depender de sobras)
  * do estado acumulado do servidor de desenvolvimento.
+ *
+ * A rota mantém o caminho antigo pelo departamento para reservas gravadas antes
+ * da senha, mas a API não cria mais registro sem senha — esse caminho não tem
+ * como ser semeado daqui, então é coberto pelos testes unitários.
  */
 
 const SALA = "Sala Azul";
 const ROOM_ID = "sala-azul";
 const DEPARTAMENTO =
   "Secretaria Municipal Fazenda, Desenvolvimento Econômico e Finanças";
+const SENHA = "senha-de-teste";
 
 /** Próximo dia útil a partir de agora – sempre futuro para o servidor. */
 function proximaDataUtil(): Date {
@@ -36,7 +42,12 @@ function paraISO(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Remove tudo que existe na sala/data, para o teste começar de um estado conhecido. */
+/**
+ * Remove tudo que existe na sala/data, para o teste começar de um estado
+ * conhecido. Manda as duas credenciais: a senha abre as reservas novas e o
+ * departamento abre quaisquer sobras antigas (`failOnStatusCode` já absorve o
+ * 403 de quem não tem nenhuma das duas).
+ */
 function limparDia(data: string) {
   return cy
     .request({
@@ -52,7 +63,7 @@ function limparDia(data: string) {
         cy.request({
           method: "DELETE",
           url: `/api/agendamentos/${agendamento.id}`,
-          body: { departamento: DEPARTAMENTO },
+          body: { senha: SENHA, departamento: DEPARTAMENTO },
           failOnStatusCode: false,
         });
       });
@@ -64,7 +75,8 @@ function semearAgendamento(
   nome: string,
   horaInicio: string,
   horaFim: string,
-  data: string
+  data: string,
+  senha = SENHA
 ) {
   return cy
     .request({
@@ -77,6 +89,7 @@ function semearAgendamento(
         data,
         horaInicio,
         horaFim,
+        senha,
       },
     })
     .then((res) => {
@@ -91,10 +104,10 @@ function abrirGradeNaData(data: string) {
   cy.get('[aria-label="Grade de horários da semana"]').should("be.visible");
 }
 
-/** O input do departamento usa `useId()`, então o id é resolvido via `for` do label. */
-function digitarDepartamento(valor: string) {
+/** O input da senha usa `useId()`, então o id é resolvido via `for` do label. */
+function digitarSenha(valor: string) {
   cy.get("[role='dialog']").within(() => {
-    cy.contains("label", "Informe o departamento para confirmar o cancelamento")
+    cy.contains("label", "Informe a senha para confirmar o cancelamento")
       .invoke("attr", "for")
       .then((id) => cy.get(`[id="${id}"]`).clear().type(valor));
   });
@@ -136,8 +149,39 @@ describe("Cancelamento de agendamento — DELETE /api/agendamentos/[id]", () => 
     limparDia(dataISO);
   });
 
-  it("recusa com 403 quando o departamento informado não corresponde", () => {
-    const nome = "Teste Departamento Errado";
+  it("exige senha no cadastro e não a devolve em resposta alguma", () => {
+    limparDia(dataISO);
+
+    cy.request({
+      method: "POST",
+      url: "/api/agendamentos",
+      body: {
+        nome: "Teste Sem Senha",
+        departamento: DEPARTAMENTO,
+        sala: SALA,
+        data: dataISO,
+        horaInicio: "11:00",
+        horaFim: "12:00",
+      },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect(res.status).to.eq(400);
+      expect(res.body.error).to.eq("A senha deve ter ao menos 4 caracteres.");
+    });
+
+    semearAgendamento("Teste Criacao Com Senha", "13:00", "14:00", dataISO);
+
+    cy.request(`/api/agendamentos?sala=${encodeURIComponent(SALA)}&data=${dataISO}`).then(
+      (res) => {
+        expect(JSON.stringify(res.body)).not.contain("cancelamentoSenha");
+        expect(JSON.stringify(res.body)).not.contain(SENHA);
+      }
+    );
+    limparDia(dataISO);
+  });
+
+  it("recusa com 403 quando a senha informada não corresponde", () => {
+    const nome = "Teste Senha Errada";
 
     limparDia(dataISO);
     semearAgendamento(nome, "10:00", "11:00", dataISO);
@@ -147,41 +191,42 @@ describe("Cancelamento de agendamento — DELETE /api/agendamentos/[id]", () => 
     abrirGradeNaData(dataISO);
     abrirModalDeCancelamento(nome);
 
-    digitarDepartamento("Secretaria Municipal de Assuntos Jurídicos");
+    digitarSenha("senha-errada");
     confirmarCancelamento();
 
     cy.wait("@cancelar").its("response.statusCode").should("eq", 403);
 
-    // A mensagem exibida é genérica: não revela o departamento cadastrado.
+    // A mensagem exibida é genérica: não diz se a reserva existe ou qual seria a senha.
     cy.get("#cancel-error-message")
-      .should("contain", "Departamento não autorizado a cancelar este agendamento.")
-      .and("not.contain", DEPARTAMENTO);
+      .should("contain", "Senha incorreta para cancelar este agendamento.")
+      .and("not.contain", SENHA);
 
     // A modal continua aberta e o agendamento segue na grade (nada foi removido).
     cy.get("[role='dialog']").should("be.visible");
     cy.get(`[aria-label^="Cancelar agendamento de ${nome}"]`).should("exist");
   });
 
-  it("cancela com 200 quando o departamento confere em caixa alta e remove da grade", () => {
-    const nome = "Teste Departamento Correto";
+  it("cancela com 200 quando a senha confere em caixa alta e remove da grade", () => {
+    const nome = "Teste Senha Correta";
 
     limparDia(dataISO);
     semearAgendamento(nome, "14:00", "15:00", dataISO);
 
     cy.intercept("DELETE", "/api/agendamentos/*").as("cancelar");
 
-    abrirGradeNaData(dataISO);
+    abrirGradeNaData(nome);
     abrirModalDeCancelamento(nome);
 
-    // Maiúsculas: valida que a comparação no servidor é case-insensitive.
-    digitarDepartamento(DEPARTAMENTO.toUpperCase());
+    // Maiúsculas: valida que a comparação no servidor normaliza a senha.
+    digitarSenha(SENHA.toUpperCase());
     confirmarCancelamento();
 
     cy.wait("@cancelar").then(({ request, response }) => {
       expect(response?.statusCode).to.eq(200);
-      // O departamento vai no body, nunca na query string.
+      // A credencial vai no body, nunca na query string.
       expect(request.body).to.deep.eq({
-        departamento: DEPARTAMENTO.toUpperCase(),
+        senha: SENHA.toUpperCase(),
+        departamento: SENHA.toUpperCase(),
       });
     });
 
@@ -199,10 +244,31 @@ describe("Cancelamento de agendamento — DELETE /api/agendamentos/[id]", () => 
     cy.request({
       method: "DELETE",
       url: "/api/agendamentos/id-inexistente",
-      body: { departamento: DEPARTAMENTO },
+      body: { senha: SENHA },
       failOnStatusCode: false,
     })
       .its("status")
       .should("eq", 404);
+  });
+
+  it("não deixa cancelar pelo departamento quando a reserva tem senha", () => {
+    const nome = "Teste Departamento Nao Basta";
+
+    limparDia(dataISO);
+    semearAgendamento(nome, "15:30", "16:30", dataISO);
+
+    cy.intercept("DELETE", "/api/agendamentos/*").as("cancelar");
+
+    abrirGradeNaData(dataISO);
+    abrirModalDeCancelamento(nome);
+
+    // O departamento está à vista na grade; com senha gravada ele deixa de abrir.
+    digitarSenha(DEPARTAMENTO);
+    confirmarCancelamento();
+
+    cy.wait("@cancelar").its("response.statusCode").should("eq", 403);
+    cy.get(`[aria-label^="Cancelar agendamento de ${nome}"]`).should("exist");
+
+    limparDia(dataISO);
   });
 });

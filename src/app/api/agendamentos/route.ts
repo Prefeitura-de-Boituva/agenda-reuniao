@@ -3,6 +3,7 @@ import {
   type Sala,
 } from "@/lib/agendamentoOpcoes";
 import { temConflito } from "@/lib/conflict";
+import { respostaPublica } from "@/lib/agendamentos";
 import {
   getErroCamposObrigatorios,
   getSlotError,
@@ -18,6 +19,7 @@ import {
   registrarErroDb,
 } from "@/prisma/errors";
 import type { Models } from "@/prisma/contract.d";
+import { gerarHashSenha, normalizarSenha, erroDaSenha } from "@/lib/senhaCancelamento";
 
 /**
  * `horaInicio`/`horaFim` são `varchar(5)` no contrato, o que o Prisma 8 expõe
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Corpo da requisição inválido." }, { status: 400 });
   }
 
-  const { nome, departamento, sala, data, horaInicio, horaFim } = (body ?? {}) as Record<string, unknown>;
+  const { nome, departamento, sala, data, horaInicio, horaFim, senha } = (body ?? {}) as Record<string, unknown>;
 
   if (
     typeof nome !== "string" ||
@@ -56,6 +58,15 @@ export async function POST(request: Request) {
   const erroCampos = getErroCamposObrigatorios(body);
   if (erroCampos) {
     return Response.json({ error: erroCampos }, { status: 400 });
+  }
+
+  // A senha de cancelamento é obrigatória desde a criação: é o que impede
+  // qualquer pessoa que veja a reserva na grade de apagá-la. Roda depois das
+  // regras de formato, para as mensagens de data e horário não perderem a vez.
+  const senhaNormalizada = typeof senha === "string" ? normalizarSenha(senha) : "";
+  const erroSenha = erroDaSenha(senhaNormalizada);
+  if (erroSenha) {
+    return Response.json({ error: erroSenha }, { status: 400 });
   }
 
   // `getErroCamposObrigatorios` já garantiu que os valores pertencem aos enums
@@ -94,6 +105,7 @@ export async function POST(request: Request) {
     horaInicio: hora(horaInicio),
     horaFim: hora(horaFim),
     criadoEm: new Date().toISOString(),
+    cancelamentoSenha: await gerarHashSenha(senhaNormalizada),
   };
 
   // Checagem de sobreposição e gravação no mesmo `try`: falha de
@@ -121,7 +133,7 @@ export async function POST(request: Request) {
     );
   }
 
-  return Response.json(novoAgendamento, { status: 201 });
+  return Response.json(respostaPublica(novoAgendamento), { status: 201 });
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -144,7 +156,7 @@ export async function GET(request: Request): Promise<Response> {
     })
       .orderBy((a) => a.horaInicio.asc())
       .all();
-    return Response.json(agendamentos, { status: 200 });
+    return Response.json(agendamentos.map(respostaPublica), { status: 200 });
   } catch (erro) {
     registrarErroDb(erro, 'GET /api/agendamentos');
     return Response.json(

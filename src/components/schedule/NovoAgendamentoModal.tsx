@@ -52,6 +52,7 @@ onConfirm: (data: {
       fim: string;
       nome: string;
       departamento: string;
+      senha: string;
     }) => Promise<boolean> | boolean;
   salaInicial?: string;
   dataInicial?: string;
@@ -86,6 +87,7 @@ export function NovoAgendamentoModal({
   const [fim, setFim] = useState(SLOTS_FIM[SLOTS_INICIO.indexOf(inicioInicial)]);
   const [nome, setNome] = useState("");
   const [departamento, setDepartamento] = useState("");
+  const [senha, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   // Seed instantâneo com o que a grade já buscou; o effect abaixo revalida
@@ -137,6 +139,9 @@ export function NovoAgendamentoModal({
     if (isPastToday(data, inicio)) return "Horário já passou no dia atual.";
     if (!nome.trim()) return "Nome é obrigatório";
     if (!departamento) return "Departamento é obrigatório";
+    // O servidor normaliza a senha antes de medir; a checagem aqui só evita uma
+    // ida e volta na API para o caso óbvio de senha curta.
+    if (senha.trim().length < 4) return "A senha deve ter ao menos 4 caracteres.";
     if (fim <= inicio) return "Horário de fim deve ser posterior ao início";
     // Complemento das verificações acima: reaproveita as mesmas funções usadas
     // no endpoint (janela 08:00–17:00, duração mínima e fim > início) para que
@@ -159,7 +164,7 @@ export function NovoAgendamentoModal({
     setErro(null);
     setLoading(true);
     try {
-      const result = await onConfirm({ sala, data, inicio, fim, nome, departamento });
+      const result = await onConfirm({ sala, data, inicio, fim, nome, departamento, senha: senha.trim() });
       if (result) {
         onClose();
       }
@@ -300,6 +305,16 @@ export function NovoAgendamentoModal({
                 ))}
               </select>
             </div>
+
+            <Input
+              label="Senha para cancelar"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              maxLength={64}
+              autoComplete="off"
+              helperText="Guarde esta senha: é ela que autoriza o cancelamento da reserva."
+              required
+            />
 
 {erro && (
           <p id="error-message" className="text-tiny text-danger-700" role="alert">

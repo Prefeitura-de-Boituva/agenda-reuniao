@@ -618,6 +618,7 @@ export function ScheduleGrid({
                 body: JSON.stringify({
                   nome: data.nome,
                   departamento: data.departamento,
+                  senha: data.senha,
                   sala: data.sala,
                   data: data.data,
                   horaInicio: data.inicio,
@@ -637,7 +638,7 @@ export function ScheduleGrid({
               }
               // Success: add booking locally, keeping the server‑generated id
               // so the cancellation (DELETE /api/agendamentos/[id]) finds it.
-              const created = await res.json();
+              const created = (await res.json()) as { id?: string };
               onCreateBooking({
                 id: created.id ?? crypto.randomUUID(),
                 roomId: selectedRoom.id,

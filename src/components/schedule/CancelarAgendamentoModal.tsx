@@ -26,7 +26,7 @@ export function CancelarAgendamentoModal({
   onConfirm,
   onClose,
 }: CancelarAgendamentoModalProps) {
-  const [departamentoInput, setDepartamentoInput] = useState("");
+  const [credencial, setCredencial] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -39,18 +39,19 @@ export function CancelarAgendamentoModal({
   }, [booking]);
 
   const handleConfirm = async () => {
-    const trimmed = departamentoInput.trim();
-    if (!trimmed) {
-      setError("Departamento é obrigatório");
+    const valor = credencial.trim();
+    if (!valor) {
+      setError("Senha é obrigatória");
       return;
     }
 
     setError(null);
     setLoading(true);
     try {
-      // A validação do departamento (case-insensitive) é feita no servidor
-      // (DELETE /api/agendamentos/[id]) e os erros 400/403/404 são exibidos aqui.
-      await cancelarAgendamento(booking.id, trimmed);
+      // A credencial é conferida no servidor (DELETE /api/agendamentos/[id]):
+      // senha nas reservas novas, departamento naquelas que ficaram sem hash.
+      // Os erros 400/403/404 são exibidos aqui.
+      await cancelarAgendamento(booking.id, { senha: valor, departamento: valor });
       onConfirm(booking.id, booking.date);
       onClose();
     } catch (err) {
@@ -95,12 +96,13 @@ export function CancelarAgendamentoModal({
             </p>
             <Input
               ref={inputRef}
-              label="Informe o departamento para confirmar o cancelamento"
-              value={departamentoInput}
+              label="Informe a senha para confirmar o cancelamento"
+              value={credencial}
               onChange={(e) => {
-                setDepartamentoInput(e.target.value);
+                setCredencial(e.target.value);
                 if (error) setError(null);
               }}
+              helperText="Reservas antigas, criadas antes da senha, cancelam informando o departamento."
               error={error ?? undefined}
               autoComplete="off"
               aria-describedby={error ? "cancel-error-message" : undefined}

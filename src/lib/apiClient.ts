@@ -19,13 +19,24 @@ async function lerErro(response: Response, fallback: string): Promise<never> {
   throw new ApiError(response.status, message);
 }
 
-export async function cancelarAgendamento(id: string, departamento: string) {
+/**
+ * `senha` é a credencial das reservas criadas com senha. `departamento` continua
+ * indo porque as reservas anteriores a essa mudança não têm hash — a rota usa um
+ * ou outro conforme o registro. Quando as reservas antigas tiverem passado, dá
+ * para mandar só a senha.
+ */
+export interface CredenciaisCancelamento {
+  senha?: string;
+  departamento?: string;
+}
+
+export async function cancelarAgendamento(id: string, credenciais: CredenciaisCancelamento) {
   const response = await fetch(`/api/agendamentos/${id}`, {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ departamento }),
+    body: JSON.stringify(credenciais),
   });
 
   if (!response.ok) {
