@@ -46,8 +46,14 @@ describe('Criação de agendamento — horário herdado do slot livre', () => {
   });
 
   it('abre o modal com o início e o fim do slot clicado', () => {
+    // `:visible`: a grade mobile (seção `md:hidden`) replica os mesmos
+    // `aria-label` das células. No viewport de 1280px ela existe no DOM mas
+    // está oculta, e o clique precisa cair na cópia que o usuário vê.
     abrirModal(() =>
-      cy.get(`[aria-label="Agendar ${amanha} das 10:00 às 10:30"]`).click()
+      cy
+        .get(`[aria-label="Agendar ${amanha} das 10:00 às 10:30"]`)
+        .filter(':visible')
+        .click()
     );
     cy.get('#inicio-select').should('have.value', '10:00');
     cy.get('#fim-select').should('have.value', '10:30');

@@ -90,7 +90,13 @@ describe("RN16 — datas passadas", () => {
 
     // A sala tem poucos blocos mockados; o primeiro slot livre do dia passado
     // é suficiente para exercitar o guard do `openCreateModal`.
-    cy.get(`[aria-label^="Agendar ${diaPassado}"]`).first().click();
+    // `:visible` antes de `first()`: a seção mobile da grade (`md:hidden`,
+    // oculta neste viewport) vem primeiro no DOM e repete os mesmos
+    // `aria-label`, e o navegador recusa clique em elemento invisível.
+    cy.get(`[aria-label^="Agendar ${diaPassado}"]`)
+      .filter(":visible")
+      .first()
+      .click();
 
     cy.get("[role='dialog']").should("not.exist");
   });
