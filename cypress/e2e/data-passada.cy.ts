@@ -63,6 +63,7 @@ describe("RN16 — datas passadas", () => {
         data: diaUtilPassadoISO(),
         horaInicio: "10:00",
         horaFim: "11:00",
+        senha: "senha-de-teste",
       },
       failOnStatusCode: false,
     }).then((res) => {

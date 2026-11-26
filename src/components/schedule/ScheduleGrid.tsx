@@ -258,8 +258,6 @@ export function ScheduleGrid({
   const [notice, setNotice] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
-  const [cancelLink, setCancelLink] = useState<string | null>(null);
-  const [linkActionMessage, setLinkActionMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!notice) return;
@@ -620,6 +618,7 @@ export function ScheduleGrid({
                 body: JSON.stringify({
                   nome: data.nome,
                   departamento: data.departamento,
+                  senha: data.senha,
                   sala: data.sala,
                   data: data.data,
                   horaInicio: data.inicio,
@@ -639,7 +638,7 @@ export function ScheduleGrid({
               }
               // Success: add booking locally, keeping the server‑generated id
               // so the cancellation (DELETE /api/agendamentos/[id]) finds it.
-              const created = await res.json();
+              const created = (await res.json()) as { id?: string };
               onCreateBooking({
                 id: created.id ?? crypto.randomUUID(),
                 roomId: selectedRoom.id,
@@ -652,10 +651,6 @@ export function ScheduleGrid({
               setCreateTarget(null);
               setCreateError(null);
               setNotice('Sua reunião foi agendada!');
-              if (typeof created.tokenCancelamento === 'string') {
-                setCancelLink(`${window.location.origin}/cancelar/${encodeURIComponent(created.tokenCancelamento)}`);
-                setLinkActionMessage(null);
-              }
               return true;
                 } catch (e) {
                   setCreateError('Erro ao criar agendamento.');
@@ -722,42 +717,6 @@ export function ScheduleGrid({
           }}
           onClose={() => setDeleteTarget(null)}
         />
-      )}
-
-      {cancelLink && (
-        <Modal open onClose={() => setCancelLink(null)}>
-          <ModalContent>
-            <ModalHeader>Agendamento confirmado</ModalHeader>
-            <ModalBody className="flex flex-col gap-4">
-              <p className="text-body text-neutral-700">Guarde este link para cancelar sua reserva sem informar o departamento.</p>
-              <input aria-label="Link de cancelamento" readOnly value={cancelLink} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-caption" onFocus={(event) => event.currentTarget.select()} />
-              {linkActionMessage && <p role="status" className="text-caption text-neutral-600">{linkActionMessage}</p>}
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="outline" onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(cancelLink);
-                  setLinkActionMessage("Link copiado.");
-                } catch {
-                  setLinkActionMessage("Não foi possível copiar automaticamente. Selecione o link para copiá-lo.");
-                }
-              }}>Copiar link</Button>
-              <Button onClick={async () => {
-                const mensagem = `Link para cancelar meu agendamento: ${cancelLink}`;
-                if (navigator.share) {
-                  try {
-                    await navigator.share({ title: "Cancelamento de agendamento", text: mensagem, url: cancelLink });
-                    setLinkActionMessage("Link compartilhado.");
-                    return;
-                  } catch (erro) {
-                    if (erro instanceof DOMException && erro.name === "AbortError") return;
-                  }
-                }
-                window.open(`https://wa.me/?text=${encodeURIComponent(mensagem)}`, "_blank", "noopener,noreferrer");
-              }}>Compartilhar</Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
       )}
 
       <Toast show={notice !== null} onClose={() => setNotice(null)}>

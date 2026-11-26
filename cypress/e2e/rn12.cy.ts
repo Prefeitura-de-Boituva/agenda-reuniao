@@ -6,12 +6,15 @@ describe("RN12 – bloqueio de agendamento em horário passado (UI)", () => {
     cy.contains("Novo agendamento").click();
     cy.get("[role='dialog']").should("be.visible");
 
-    // Preenche o campo obrigatório (Nome) para a validação nativa do HTML
-    // (required) não bloquear o submit antes de o código React rodar.
+    // Preenche os campos obrigatórios (Nome e Senha) para a validação nativa do
+    // HTML (required) não bloquear o submit antes de o código React rodar.
     cy.get("[role='dialog']").within(() => {
       cy.contains("label", "Nome")
         .invoke("attr", "for")
         .then((id) => cy.get(`[id="${id}"]`).type("Usuário teste RN12"));
+      cy.contains("label", "Senha para cancelar")
+        .invoke("attr", "for")
+        .then((id) => cy.get(`[id="${id}"]`).type("senha-de-teste"));
     });
 
     // Congela apenas o Date do navegador às 20h do dia atual: assim todos os

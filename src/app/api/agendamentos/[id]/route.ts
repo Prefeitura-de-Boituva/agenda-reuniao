@@ -1,4 +1,5 @@
-import { buscarAgendamento, validarDepartamento } from "@/lib/agendamentos";
+import { buscarAgendamento, respostaPublica, validarDepartamento } from "@/lib/agendamentos";
+import { confereSenha } from "@/lib/senhaCancelamento";
 import type { Departamento } from "@/lib/agendamentoOpcoes";
 import { temConflito } from "@/lib/conflict";
 import {
@@ -25,14 +26,7 @@ export async function DELETE(
     return Response.json({ error: "Corpo da requisição inválido." }, { status: 400 });
   }
 
-  const { departamento } = (body ?? {}) as Record<string, unknown>;
-
-  if (typeof departamento !== "string" || departamento.trim() === "") {
-    return Response.json(
-      { error: "O campo departamento é obrigatório." },
-      { status: 400 }
-    );
-  }
+  const { departamento, senha } = (body ?? {}) as Record<string, unknown>;
 
   try {
     const agendamento = await buscarAgendamento(id);
@@ -52,21 +46,44 @@ export async function DELETE(
       );
     }
 
-    // 403 – departamento informado não confere com o cadastrado.
-    // A comparação é delegada a `validarDepartamento` (comparação case-insensitive
-    // e sem acentos). O agendamento já buscado é reaproveitado via injeção para
-    // não disparar uma segunda consulta ao banco. A mensagem de erro é genérica
-    // de propósito: não revela o departamento cadastrado na reserva.
-    const validacao = await validarDepartamento(
-      id,
-      departamento,
-      async () => agendamento
-    );
-    if (!validacao.valido) {
-      return Response.json(
-        { error: "Departamento não autorizado a cancelar este agendamento." },
-        { status: 403 }
+    // Credencial da reserva. Desde a mudança, quem agenda cadastra uma senha e
+    // ela é a única prova de autoria — o nome do departamento não serve, porque
+    // aparece na grade para qualquer visitante. Reservas antigas, que ficaram
+    // sem hash, continuam conferindo o departamento para não virarem órfãs.
+    if (agendamento.cancelamentoSenha) {
+      const autorizada = await confereSenha(
+        typeof senha === "string" ? senha : "",
+        agendamento.cancelamentoSenha
       );
+      if (!autorizada) {
+        return Response.json(
+          { error: "Senha incorreta para cancelar este agendamento." },
+          { status: 403 }
+        );
+      }
+    } else {
+      if (typeof departamento !== "string" || departamento.trim() === "") {
+        return Response.json(
+          { error: "O campo departamento é obrigatório." },
+          { status: 400 }
+        );
+      }
+
+      // A comparação é delegada a `validarDepartamento` (comparação case-insensitive
+      // e sem acentos). O agendamento já buscado é reaproveitado via injeção para
+      // não disparar uma segunda consulta ao banco. A mensagem de erro é genérica
+      // de propósito: não revela o departamento cadastrado na reserva.
+      const validacao = await validarDepartamento(
+        id,
+        departamento,
+        async () => agendamento
+      );
+      if (!validacao.valido) {
+        return Response.json(
+          { error: "Departamento não autorizado a cancelar este agendamento." },
+          { status: 403 }
+        );
+      }
     }
 
     // Remove o agendamento (critério: "Remove agendamento cancelado")
@@ -167,7 +184,7 @@ export async function PUT(
 
     const atualizado = await db.orm.public.Agendamento.where({ id }).update(dados);
 
-    return Response.json(atualizado ?? { ...agendamento, ...dados }, { status: 200 });
+    return Response.json(respostaPublica(atualizado ?? { ...agendamento, ...dados }), { status: 200 });
   } catch (erro) {
     // Duas edições simultâneas podem passar juntas pelo `temConflito`; a
     // constraint `@@unique([sala, data, horaInicio])` decide o perdedor, que

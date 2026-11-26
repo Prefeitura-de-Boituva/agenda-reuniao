@@ -1,9 +1,28 @@
 import { db } from "@/prisma/db";
+import type { Models } from "@/prisma/contract.d";
 import { isMesmoDepartamento } from "./validations";
 
 export async function buscarAgendamento(idAgendamento: string) {
   // Placeholder for Prisma query – .where returns a query builder with .first()
   return db.orm.public.Agendamento.where({ id: idAgendamento }).first();
+}
+
+/**
+ * Projeção que a API devolve. O hash da senha de cancelamento mora só no banco:
+ * criar, listar ou editar nunca pode expor a credencial (nem offline, para quem
+ * interceptar a resposta).
+ */
+export function respostaPublica(agendamento: Models.public_Agendamento) {
+  return {
+    id: agendamento.id,
+    nome: agendamento.nome,
+    departamento: agendamento.departamento,
+    sala: agendamento.sala,
+    data: agendamento.data,
+    horaInicio: agendamento.horaInicio,
+    horaFim: agendamento.horaFim,
+    criadoEm: agendamento.criadoEm,
+  };
 }
 
 export type ResultadoValidacaoDepartamento =

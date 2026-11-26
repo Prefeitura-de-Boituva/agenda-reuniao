@@ -28,7 +28,7 @@ model Agendamento {
   horaInicio   VarChar(5)
   horaFim      VarChar(5)
   criadoEm     TimestamptzString @default(now())
-  cancelamentoTokenHash String?   @unique
+  cancelamentoSenha String?
 
   @@unique([sala, data, horaInicio])
 }

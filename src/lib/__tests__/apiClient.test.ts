@@ -6,7 +6,7 @@ describe("cancelarAgendamento", () => {
     vi.unstubAllGlobals();
   });
 
-  it("chama DELETE /api/agendamentos/[id] com o departamento no body", async () => {
+  it("chama DELETE /api/agendamentos/[id] com a credencial no body", async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(
@@ -16,13 +16,13 @@ describe("cancelarAgendamento", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const resultado = await cancelarAgendamento("abc-123", "Fazenda");
+    const resultado = await cancelarAgendamento("abc-123", { senha: "agua12" });
 
     expect(resultado.message).toBe("Agendamento cancelado com sucesso.");
     const [url, options] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("/api/agendamentos/abc-123");
     expect(options.method).toBe("DELETE");
-    expect(JSON.parse(String(options.body)).departamento).toBe("Fazenda");
+    expect(JSON.parse(String(options.body))).toEqual({ senha: "agua12" });
   });
 
   it("lança ApiError com status 404 quando o agendamento não existe", async () => {
@@ -37,7 +37,9 @@ describe("cancelarAgendamento", () => {
       )
     );
 
-    await expect(cancelarAgendamento("abc-123", "Fazenda")).rejects.toMatchObject({
+    await expect(
+      cancelarAgendamento("abc-123", { departamento: "Fazenda" })
+    ).rejects.toMatchObject({
       status: 404,
       message: "Agendamento não encontrado.",
     });
@@ -57,7 +59,7 @@ describe("cancelarAgendamento", () => {
       )
     );
 
-    const erro = await cancelarAgendamento("abc-123", "Errado").catch((e) => e);
+    const erro = await cancelarAgendamento("abc-123", { senha: "Errado" }).catch((e) => e);
     expect(erro).toBeInstanceOf(ApiError);
     expect(erro.status).toBe(403);
   });

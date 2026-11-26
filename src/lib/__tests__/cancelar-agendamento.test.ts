@@ -37,6 +37,7 @@ vi.mock("@/prisma/db", () => ({
 }));
 
 import { DELETE } from "../../../src/app/api/agendamentos/[id]/route";
+import { gerarHashSenha } from "@/lib/senhaCancelamento";
 
 // Fixture com os campos do contrato (contract.prisma)
 const agendamento = {
@@ -48,6 +49,16 @@ const agendamento = {
   horaInicio: "10:30",
   horaFim: "11:30",
   criadoEm: "2026-09-19T10:00:00.000Z",
+};
+
+/**
+ * O `await` no topo do módulo roda antes dos `useFakeTimers` dos testes, então o
+ * scrypt não depende de relógio nenhum.
+ */
+const senhaDaReserva = "senha-da-maria";
+const agendamentoComSenha = {
+  ...agendamento,
+  cancelamentoSenha: await gerarHashSenha(senhaDaReserva),
 };
 
 function buildRequest(id: string, body?: unknown): Request {
@@ -89,7 +100,15 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     });
   });
 
-  it("retorna 400 quando o departamento não é informado", async () => {
+  // Os dois abaixo são o caminho das reservas antigas, gravadas antes de existir
+  // senha: sem hash no registro, o departamento volta a ser a credencial. Como a
+  // rota agora busca o registro antes de validar a credencial, o relógio precisa
+  // estar congelado para a reserva não aparecer já encerrada.
+  it("retorna 400 quando a reserva sem senha é cancelada sem departamento", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-20T12:00:00.000Z"));
+    agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
+
     const response = await DELETE(buildRequest("abc-123", {}), params("abc-123"));
 
     expect(response.status).toBe(400);
@@ -99,6 +118,10 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
   });
 
   it("retorna 400 quando o departamento é uma string vazia", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-20T12:00:00.000Z"));
+    agendamentoMock.buscarAgendamento.mockResolvedValue(agendamento);
+
     const response = await DELETE(
       buildRequest("abc-123", { departamento: "   " }),
       params("abc-123")
@@ -215,6 +238,60 @@ describe("DELETE /api/agendamentos/[id] – cancelamento de agendamento", () => 
     });
     expect(dbMock.where).toHaveBeenCalledWith({ id: agendamento.id });
     expect(dbMock.deleteAgendamento).toHaveBeenCalledTimes(1);
+  });
+
+  describe("reserva criada com senha", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-20T12:00:00.000Z")); // 09:00 na agenda
+      agendamentoMock.buscarAgendamento.mockResolvedValue(agendamentoComSenha);
+    });
+
+    it("cancela quando a senha confere, ainda que digitada em caixa alta", async () => {
+      const response = await DELETE(
+        buildRequest(agendamento.id, { senha: senhaDaReserva.toUpperCase() }),
+        params(agendamento.id)
+      );
+
+      expect(response.status).toBe(200);
+      expect(dbMock.where).toHaveBeenCalledWith({ id: agendamento.id });
+      expect(dbMock.deleteAgendamento).toHaveBeenCalledTimes(1);
+    });
+
+    it("responde 403 quando a senha não confere", async () => {
+      const response = await DELETE(
+        buildRequest(agendamento.id, { senha: "senha-de-outra-pessoa" }),
+        params(agendamento.id)
+      );
+
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual({
+        error: "Senha incorreta para cancelar este agendamento.",
+      });
+      expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
+    });
+
+    it("não libera o cancelamento pelo departamento quando a reserva tem senha", async () => {
+      // O departamento está à vista na grade; com hash gravado ele deixa de
+      // servir como credencial.
+      const response = await DELETE(
+        buildRequest(agendamento.id, { departamento: agendamento.departamento }),
+        params(agendamento.id)
+      );
+
+      expect(response.status).toBe(403);
+      expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
+    });
+
+    it("responde 403 com corpo vazio, sem revelar qual credencial a reserva usa", async () => {
+      const response = await DELETE(
+        buildRequest(agendamento.id, {}),
+        params(agendamento.id)
+      );
+
+      expect(response.status).toBe(403);
+      expect(dbMock.deleteAgendamento).not.toHaveBeenCalled();
+    });
   });
 
   it("retorna 500 quando a consulta ao banco falha", async () => {
