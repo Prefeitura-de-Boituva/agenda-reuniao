@@ -360,6 +360,8 @@ export function ScheduleGrid({
             return (
               <button
                 key={room.id}
+                type="button"
+                aria-pressed={isSelected}
                 onClick={() => onSelectRoom(room.id)}
                 className={cn(
                   "rounded-lg px-4 py-2 text-caption font-medium transition-colors duration-150",

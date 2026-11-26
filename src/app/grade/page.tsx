@@ -1,62 +1,64 @@
 "use client";
 
-/* eslint-disable react-hooks/set-state-in-effect -- os effects abaixo sincronizam
-   estado persistido (localStorage), parâmetros de URL e o loading do fetch; cada
-   um roda após a hidratação de propósito e refatorá-los mudaria o comportamento. */
+/* eslint-disable react-hooks/set-state-in-effect -- o efeito de busca abre o
+   `isLoading` no próprio corpo, antes do `fetch`, e o tint da sala precisa tocar o
+   `<body>` depois da montagem; nenhum dos dois pode virar derivação de render. */
 
 import { useEffect, useMemo, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ScheduleGrid } from "@/components/schedule";
 import { fetchBookings } from "@/lib/bookings";
 import { getWeekDates, getWeekStart, parseDate, shiftDate, toISODate } from "@/lib/schedule";
-import { loadGradeState, saveGradeState } from "@/lib/storage";
 import type { Booking } from "@/types/schedule";
 import { ROOMS } from "@/lib/rooms";
 import { applyRoomTint } from "@/lib/room-colors";
 
+/** `?room=` só vale se for uma sala conhecida; qualquer outra coisa cai na primeira. */
+function salaDaUrl(param: string | null): string {
+  return ROOMS.find((room) => room.id === param)?.id ?? ROOMS[0].id;
+}
+
+/**
+ * `?date=` aceitável: "YYYY-MM-DD" que o relógio da agenda consiga interpretar.
+ * `parseDate` lança para formato inválido e rola o mês para frente para datas
+ * impossíveis, então a checagem é regex + `Date` válido.
+ */
+function dataDaUrl(param: string | null): string | undefined {
+  if (!param || !/^\d{4}-\d{2}-\d{2}$/.test(param)) return undefined;
+  try {
+    return Number.isNaN(parseDate(param).getTime()) ? undefined : param;
+  } catch {
+    return undefined;
+  }
+}
+
 function GradeContent() {
   const searchParams = useSearchParams();
-  const dateParam = searchParams?.get("date");
-  const roomParam = searchParams?.get("room");
+  const router = useRouter();
+  const pathname = usePathname();
 
-  const [selectedRoomId, setSelectedRoomId] = useState<string>(ROOMS[0].id);
-  const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
+  const selectedRoomId = salaDaUrl(searchParams?.get("room") ?? null);
+  const highlightedDate = dataDaUrl(searchParams?.get("date") ?? null);
+  /** Dia que ancora a semana mostrada: o da URL, ou hoje quando a URL não informa. */
+  const anchorDate = highlightedDate ?? toISODate(new Date());
+  const weekStart = useMemo(() => getWeekStart(parseDate(anchorDate)), [anchorDate]);
+
   const [fetched, setFetched] = useState<Record<string, Record<string, Booking[]>>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-  const [highlightedDate, setHighlightedDate] = useState<string | undefined>(dateParam ?? undefined);
 
-  useEffect(() => {
-    const saved = loadGradeState();
-    if (saved) {
-      setSelectedRoomId(saved.selectedRoomId);
-      setWeekStart(parseDate(saved.weekStartIso));
-    }
-    setHydrated(true);
-  }, []);
-
-  // Apply date param if present and valid
-  useEffect(() => {
-    if (!hydrated || !dateParam) return;
-    try {
-      const parsed = parseDate(dateParam);
-      if (!isNaN(parsed.getTime())) {
-        const newWeekStart = getWeekStart(parsed);
-        setWeekStart(newWeekStart);
-        setHighlightedDate(dateParam);
-      }
-    } catch {
-      // Invalid date param, ignore
-    }
-  }, [hydrated, dateParam]);
-
-  // Apply room param if present and valid
-  useEffect(() => {
-    if (!hydrated || !roomParam) return;
-    if (ROOMS.some((r) => r.id === roomParam)) {
-      setSelectedRoomId(roomParam);
-    }
-  }, [hydrated, roomParam]);
+  /**
+   * Sala e semana vivem na URL: `router.replace` escreve `?room=`/`?date=` sem
+   * empilhar entradas no histórico e sem recarregar a página. Com o endereço como
+   * única fonte, recarregar, compartilhar o link e voltar para a grade reabrem a
+   * grade que estava na tela — o `localStorage` de navegação era uma segunda fonte
+   * que perdia a disputa para a URL justamente no reload.
+   */
+  const abrir = (date: string, roomId: string) => {
+    const params = new URLSearchParams(searchParams?.toString());
+    params.set("date", date);
+    params.set("room", roomId);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   // Light background tint per room, aplicado ao body
   useEffect(() => {
@@ -64,7 +66,6 @@ function GradeContent() {
   }, [selectedRoomId]);
 
   useEffect(() => {
-    if (!hydrated) return;
     let cancelled = false;
     setIsLoading(true);
     const dates = getWeekDates(weekStart).map(toISODate);
@@ -88,12 +89,7 @@ function GradeContent() {
     return () => {
       cancelled = true;
     };
-  }, [selectedRoomId, weekStart, hydrated]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    saveGradeState({ selectedRoomId, weekStartIso: toISODate(weekStart) });
-  }, [selectedRoomId, weekStart, hydrated]);
+  }, [selectedRoomId, weekStart]);
 
   const bookings = useMemo(() => {
     const roomFetched = fetched[selectedRoomId] ?? {};
@@ -105,9 +101,14 @@ function GradeContent() {
     );
   }, [fetched, selectedRoomId]);
 
-  const handleSelectRoom = (roomId: string) => setSelectedRoomId(roomId);
-  const handleNavigateWeek = (days: number) => setWeekStart((prev) => shiftDate(prev, days));
-  const handleGoToCurrentWeek = () => setWeekStart(getWeekStart(new Date()));
+  const handleSelectRoom = (roomId: string) => abrir(anchorDate, roomId);
+  /**
+   * Trocar de semana desloca o próprio dia âncora, e não só o início da semana:
+   * assim o `?date=` continua sendo um dia da semana exibida e o reload reabre nela.
+   */
+  const handleNavigateWeek = (days: number) =>
+    abrir(toISODate(shiftDate(parseDate(anchorDate), days)), selectedRoomId);
+  const handleGoToCurrentWeek = () => abrir(toISODate(new Date()), selectedRoomId);
 
   /**
    * Criação e edição já foram confirmadas pelo servidor quando chegam aqui, então
