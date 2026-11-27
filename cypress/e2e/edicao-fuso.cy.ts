@@ -47,7 +47,10 @@ describe('Edição de agendamento — bloqueio de horário já passado no dia co
     cy.visit(`/grade?date=${hoje}&room=sala-azul`);
     cy.wait('@agendamentos');
     cy.contains('button', 'Sala Azul').should('exist');
-    cy.get('[aria-label="Editar agendamento"]').first().click();
+    cy.get('[data-testid="desktop-table-container"]')
+      .find('[aria-label="Editar agendamento"]')
+      .first()
+      .click();
     cy.get("[role='dialog']").should('be.visible');
   });
 

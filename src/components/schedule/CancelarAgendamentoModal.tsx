@@ -7,11 +7,11 @@ import {
   ModalBody,
   ModalFooter,
   Button,
-  Input,
 } from "@/components/ui";
 import { useState, useEffect, useRef } from "react";
 import type { Booking } from "@/types/schedule";
 import { cancelarAgendamento, ApiError } from "@/lib/apiClient";
+import { DEPARTAMENTOS, type Departamento } from "@/lib/agendamentoOpcoes";
 import { ROOMS } from "@/lib/rooms";
 import { formatDate, parseDate } from "@/lib/schedule";
 
@@ -26,21 +26,20 @@ export function CancelarAgendamentoModal({
   onConfirm,
   onClose,
 }: CancelarAgendamentoModalProps) {
-  const [departamentoInput, setDepartamentoInput] = useState("");
+  const [departamento, setDepartamento] = useState<Departamento | "">("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const selectRef = useRef<HTMLSelectElement>(null);
   const roomName = ROOMS.find((r) => r.id === booking.roomId)?.name ?? booking.roomId;
 
   useEffect(() => {
     if (booking) {
-      inputRef.current?.focus();
+      selectRef.current?.focus();
     }
   }, [booking]);
 
   const handleConfirm = async () => {
-    const trimmed = departamentoInput.trim();
-    if (!trimmed) {
+    if (!departamento) {
       setError("Departamento é obrigatório");
       return;
     }
@@ -48,9 +47,9 @@ export function CancelarAgendamentoModal({
     setError(null);
     setLoading(true);
     try {
-      // A validação do departamento (case-insensitive) é feita no servidor
+      // A validação final do departamento continua no servidor
       // (DELETE /api/agendamentos/[id]) e os erros 400/403/404 são exibidos aqui.
-      await cancelarAgendamento(booking.id, trimmed);
+      await cancelarAgendamento(booking.id, departamento);
       onConfirm(booking.id, booking.date);
       onClose();
     } catch (err) {
@@ -93,19 +92,37 @@ export function CancelarAgendamentoModal({
             <p>
               <strong>Departamento atual:</strong> {booking.department}
             </p>
-            <Input
-              ref={inputRef}
-              label="Informe o departamento para confirmar o cancelamento"
-              value={departamentoInput}
-              onChange={(e) => {
-                setDepartamentoInput(e.target.value);
-                if (error) setError(null);
-              }}
-              error={error ?? undefined}
-              autoComplete="off"
-              aria-describedby={error ? "cancel-error-message" : undefined}
-              disabled={loading}
-            />
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="cancel-departamento-select"
+                className="text-caption font-medium text-neutral-700"
+              >
+                Selecione o departamento para confirmar o cancelamento
+              </label>
+              <select
+                ref={selectRef}
+                id="cancel-departamento-select"
+                className="flex h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-body text-neutral-900 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-100 focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:outline-none"
+                value={departamento}
+                onChange={(e) => {
+                  setDepartamento(e.target.value as Departamento | "");
+                  if (error) setError(null);
+                }}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? "cancel-error-message" : undefined}
+                disabled={loading}
+                required
+              >
+                <option value="" disabled hidden>
+                  Selecione o departamento
+                </option>
+                {DEPARTAMENTOS.map((op) => (
+                  <option key={op} value={op}>
+                    {op}
+                  </option>
+                ))}
+              </select>
+            </div>
             {error && (
               <p id="cancel-error-message" className="text-tiny text-danger-700" role="alert">
                 {error}

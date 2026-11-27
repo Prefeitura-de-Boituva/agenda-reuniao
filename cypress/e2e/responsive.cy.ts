@@ -112,6 +112,91 @@ describe("Responsividade e Acessibilidade", () => {
     });
   });
 
+  describe("Acesso público", () => {
+    it("abre a página inicial e a grade diretamente", () => {
+      cy.visit("/");
+      cy.location("pathname").should("eq", "/");
+      cy.get("body").should("be.visible");
+
+      cy.visit("/grade");
+      cy.location("pathname").should("eq", "/grade");
+      cy.get("h1").should("contain", "Grade de Horários");
+    });
+
+    it("não mantém a página nem a API de senha", () => {
+      cy.request({ url: "/entrar", failOnStatusCode: false })
+        .its("status")
+        .should("eq", 404);
+      cy.request({ url: "/api/acesso", failOnStatusCode: false })
+        .its("status")
+        .should("eq", 404);
+    });
+  });
+
+  describe("Edição no celular", () => {
+    beforeEach(() => {
+      const agora = new Date();
+      agora.setHours(8, 0, 0, 0);
+      const hoje = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}`;
+      const reserva = {
+        id: "b-edicao-mobile",
+        nome: "Reunião mobile",
+        departamento: "Secretaria Municipal Obras Públicas",
+        sala: "Sala Azul",
+        data: hoje,
+        horaInicio: "09:00",
+        horaFim: "10:00",
+        criadoEm: `${hoje}T08:00:00.000Z`,
+      };
+
+      cy.viewport(320, 568);
+      cy.clock(agora, ["Date"]);
+      cy.intercept("GET", /\/api\/agendamentos\?/, (req) => {
+        const url = new URL(req.url);
+        const ehDaReserva =
+          url.searchParams.get("sala") === reserva.sala &&
+          url.searchParams.get("data") === hoje;
+        req.reply({ statusCode: 200, body: ehDaReserva ? [reserva] : [] });
+      }).as("agendamentos");
+
+      cy.visit(`/grade?date=${hoje}&room=sala-azul`);
+      cy.wait("@agendamentos");
+    });
+
+    it("abre a edição pelo lápis e salva a alteração", () => {
+      cy.get(
+        "section[aria-label='Grade de horários por dia'] button[aria-label^='Editar agendamento de Reunião mobile']"
+      )
+        .first()
+        .click();
+
+      cy.get("[role='dialog']").should("be.visible");
+      cy.get("[role='dialog'] input").first().clear().type("Reunião mobile editada");
+
+      cy.intercept("PUT", "/api/agendamentos/b-edicao-mobile", {
+        statusCode: 200,
+        body: { ok: true },
+      }).as("editar");
+      cy.contains("[role='dialog'] button", "Salvar").click();
+
+      cy.wait("@editar").then(({ request, response }) => {
+        expect(response?.statusCode).to.eq(200);
+        expect(request.body).to.deep.eq({
+          nome: "Reunião mobile editada",
+          departamento: "Secretaria Municipal Obras Públicas",
+          horaInicio: "09:00",
+          horaFim: "10:00",
+        });
+      });
+
+      cy.get("[role='dialog']").should("not.exist");
+      cy.contains('[role="status"]', "Editado com sucesso!").should("be.visible");
+      cy.get(
+        "section[aria-label='Grade de horários por dia'] button[aria-label^='Editar agendamento de Reunião mobile editada']"
+      ).should("be.visible");
+    });
+  });
+
   describe("Modais", () => {
     beforeEach(() => {
       cy.viewport(1024, 768);

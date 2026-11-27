@@ -47,7 +47,9 @@ describe('Criação de agendamento — horário herdado do slot livre', () => {
 
   it('abre o modal com o início e o fim do slot clicado', () => {
     abrirModal(() =>
-      cy.get(`[aria-label="Agendar ${amanha} das 10:00 às 10:30"]`).click()
+      cy.get("[data-testid='desktop-table-container']")
+        .find(`[aria-label="Agendar ${amanha} das 10:00 às 10:30"]`)
+        .click()
     );
     cy.get('#inicio-select').should('have.value', '10:00');
     cy.get('#fim-select').should('have.value', '10:30');

@@ -426,13 +426,13 @@ export function ScheduleGrid({
                   {schedule.slotsByDate[date].map((slot) => {
                     const booking = slot.booking;
                     return (
-                      <li key={slot.startTime} className="min-w-0 px-3 py-2">
+                      <li key={slot.startTime} className="flex min-w-0 items-center gap-2 px-3 py-2">
                         <button
                           type="button"
                           onClick={() => booking ? openCancelModal(booking) : openCreateModal(slot, date)}
                           aria-label={booking ? `Ver agendamento de ${booking.name}, ${slot.startTime} às ${slot.endTime}` : `Agendar ${date} das ${slot.startTime} às ${slot.endTime}`}
                           className={cn(
-                            "flex w-full min-w-0 max-w-full items-center gap-3 rounded-lg border p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400",
+                            "flex min-h-11 min-w-0 max-w-full flex-1 items-center gap-3 rounded-lg border p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400",
                             booking ? "border-danger-200 bg-danger-50 text-danger-800 hover:bg-danger-100" : "border-success-200 bg-success-50 text-success-700 hover:bg-success-100"
                           )}
                         >
@@ -446,6 +446,17 @@ export function ScheduleGrid({
                             </span>
                           ) : <span className="ml-auto shrink-0 text-caption font-semibold">LIVRE</span>}
                         </button>
+                        {booking && (
+                          <button
+                            type="button"
+                            onClick={() => setEditTarget(booking)}
+                            aria-label={`Editar agendamento de ${booking.name}, ${slot.startTime} às ${slot.endTime}`}
+                            title="Editar agendamento"
+                            className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-danger-200 bg-white text-danger-700 hover:bg-danger-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-400"
+                          >
+                            <Pencil className="size-4" />
+                          </button>
+                        )}
                       </li>
                     );
                   })}

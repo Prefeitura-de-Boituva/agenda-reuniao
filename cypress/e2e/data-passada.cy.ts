@@ -89,7 +89,10 @@ describe("RN16 — datas passadas", () => {
 
     // A sala tem poucos blocos mockados; o primeiro slot livre do dia passado
     // é suficiente para exercitar o guard do `openCreateModal`.
-    cy.get(`[aria-label^="Agendar ${diaPassado}"]`).first().click();
+    cy.get("[data-testid='desktop-table-container']")
+      .find(`[aria-label^="Agendar ${diaPassado}"]`)
+      .first()
+      .click();
 
     cy.get("[role='dialog']").should("not.exist");
   });

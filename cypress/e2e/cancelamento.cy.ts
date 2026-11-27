@@ -3,11 +3,11 @@
 /**
  * Cancelamento de agendamento — DELETE /api/agendamentos/[id]
  *
- * Cobre o fluxo completo pela UI: abrir a modal, errar o departamento (403),
- * acertar em caixa alta (200, case-insensitive) e confirmar a remoção da grade.
+ * Cobre o fluxo completo pela UI: abrir a modal, exigir a seleção do departamento,
+ * errar o departamento (403), acertar (200) e confirmar a remoção da grade.
  *
- * O banco é um store em memória por processo, então o agendamento semeado via
- * `cy.request` é o mesmo que a tela lê e o mesmo que a rota DELETE remove.
+ * O agendamento semeado via `cy.request` é o mesmo que a tela lê e o mesmo que
+ * a rota DELETE remove, seja no mock em memória ou no PostgreSQL configurado.
  *
  * Não falsificamos o relógio: agendamentos são semeados sempre no próximo dia
  * útil, que já é futuro para o servidor. A semana exibida é escolhida pela query
@@ -45,7 +45,6 @@ function limparDia(data: string) {
     })
     .then((res) => {
       const agendamentos = res.body as Array<{ id: string }>;
-      // Sem banco a API responde 500 com um objeto de erro, não uma lista.
       if (!Array.isArray(agendamentos)) return;
       // As requisições são enfileiradas aqui e executadas em ordem pelo Cypress.
       agendamentos.forEach((agendamento) => {
@@ -91,12 +90,9 @@ function abrirGradeNaData(data: string) {
   cy.get('[aria-label="Grade de horários da semana"]').should("be.visible");
 }
 
-/** O input do departamento usa `useId()`, então o id é resolvido via `for` do label. */
-function digitarDepartamento(valor: string) {
+function selecionarDepartamento(valor: string) {
   cy.get("[role='dialog']").within(() => {
-    cy.contains("label", "Informe o departamento para confirmar o cancelamento")
-      .invoke("attr", "for")
-      .then((id) => cy.get(`[id="${id}"]`).clear().type(valor));
+    cy.get("#cancel-departamento-select").select(valor);
   });
 }
 
@@ -120,9 +116,9 @@ describe("Cancelamento de agendamento — DELETE /api/agendamentos/[id]", () => 
   const dataISO = paraISO(proximaDataUtil());
 
   before(function () {
-    // Este fluxo semeia e remove dados reais pela API: sem DATABASE_URL configurada
-    // a rota responde 500 e não há como exercê-lo. Marca a suíte como pendente em
-    // vez de reportar falha de produto num ambiente sem banco.
+    // Este fluxo semeia e remove dados pela API. Se o servidor não conseguir
+    // atender ao GET, marca a suíte como pendente em vez de reportar falha de
+    // produto num ambiente indisponível.
     cy.request({
       url: `/api/agendamentos?sala=${encodeURIComponent(SALA)}&data=${dataISO}`,
       failOnStatusCode: false,
@@ -136,6 +132,25 @@ describe("Cancelamento de agendamento — DELETE /api/agendamentos/[id]", () => 
     limparDia(dataISO);
   });
 
+  it("exige a seleção do departamento antes de cancelar", () => {
+    const nome = "Teste Departamento Obrigatório";
+
+    limparDia(dataISO);
+    semearAgendamento(nome, "08:00", "09:00", dataISO);
+
+    cy.intercept("DELETE", "/api/agendamentos/*").as("cancelar");
+
+    abrirGradeNaData(dataISO);
+    abrirModalDeCancelamento(nome);
+
+    cy.get("#cancel-departamento-select option").should("have.length", 9);
+    confirmarCancelamento();
+
+    cy.get("#cancel-error-message").should("contain", "Departamento é obrigatório");
+    cy.get("@cancelar.all").should("have.length", 0);
+    cy.get("[role='dialog']").should("be.visible");
+  });
+
   it("recusa com 403 quando o departamento informado não corresponde", () => {
     const nome = "Teste Departamento Errado";
 
@@ -147,7 +162,7 @@ describe("Cancelamento de agendamento — DELETE /api/agendamentos/[id]", () => 
     abrirGradeNaData(dataISO);
     abrirModalDeCancelamento(nome);
 
-    digitarDepartamento("Secretaria Municipal de Assuntos Jurídicos");
+    selecionarDepartamento("Secretaria Municipal de Assuntos Jurídicos");
     confirmarCancelamento();
 
     cy.wait("@cancelar").its("response.statusCode").should("eq", 403);
@@ -162,7 +177,7 @@ describe("Cancelamento de agendamento — DELETE /api/agendamentos/[id]", () => 
     cy.get(`[aria-label^="Cancelar agendamento de ${nome}"]`).should("exist");
   });
 
-  it("cancela com 200 quando o departamento confere em caixa alta e remove da grade", () => {
+  it("cancela com 200 quando o departamento selecionado confere e remove da grade", () => {
     const nome = "Teste Departamento Correto";
 
     limparDia(dataISO);
@@ -173,15 +188,14 @@ describe("Cancelamento de agendamento — DELETE /api/agendamentos/[id]", () => 
     abrirGradeNaData(dataISO);
     abrirModalDeCancelamento(nome);
 
-    // Maiúsculas: valida que a comparação no servidor é case-insensitive.
-    digitarDepartamento(DEPARTAMENTO.toUpperCase());
+    selecionarDepartamento(DEPARTAMENTO);
     confirmarCancelamento();
 
     cy.wait("@cancelar").then(({ request, response }) => {
       expect(response?.statusCode).to.eq(200);
       // O departamento vai no body, nunca na query string.
       expect(request.body).to.deep.eq({
-        departamento: DEPARTAMENTO.toUpperCase(),
+        departamento: DEPARTAMENTO,
       });
     });
 
