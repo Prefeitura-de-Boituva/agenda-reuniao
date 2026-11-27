@@ -36,6 +36,12 @@ Dois bloqueios reais antes de convidar alguém:
 Quatro mudanças, nascidas na branch `feat/url-publica-vercel` (a partir do `develop`
 `b27579e`) e agora mescladas em `main` (`c56df25`), que já continha os PRs #58 e #59:
 
+> **Atualização (2026-11-27):** o **item 2 abaixo (portão de senha) foi removido** por
+> hotfix (`hotfix/remover-portao-senha`). A agenda abre direto, sem `/entrar` nem
+> `ACCESS_PASSWORD`; o preparo da Vercel (item 3) e o fuso (item 1) permanecem. As
+> seções de procedimento deste guia já refletem o acesso aberto; os registros
+> históricos abaixo do dia 27/11 mencionam o portão como ele era na época.
+
 1. **Fuso explícito.** `src/lib/fuso.ts` fixa `America/Sao_Paulo` nas regras RN12/RN16
    e na grade. Antes elas dependiam do fuso do processo: num host em UTC (caso da
    Vercel) a validação de "horário passado" era pulada entre 21h e 24h de Boituva.
@@ -129,15 +135,14 @@ do painel em `vercel.com/prefeitura-boituva/agenda-reuniao/CKWKTga2L6mYqkpG6TEJm
 ```bash
 cd <repo>                                          # worktree que será publicado
 git fetch origin --prune
-git checkout main                                  # main local c56df25: PR #57, fuso, portão
+git checkout main                                  # main local c56df25: PR #57, fuso
                                                    # e correção do slot. Sem pull --ff-only:
                                                    # este merge ainda não foi enviado.
 
 # 1. arquivo de env do deploy (NUNCA versionar: .gitignore já cobre ".env*")
 cp .env.production.example .env.production.local
 chmod 600 .env.production.local
-#   editar: DATABASE_URL pooled (-pooler), DIRECT_URL sem -pooler e ACCESS_PASSWORD
-#   (a senha do grupo; sem ela o compose falha de propósito)
+#   editar: DATABASE_URL pooled (-pooler) e DIRECT_URL sem -pooler
 
 # 2. migrations no banco de destino — o container NÃO roda migration
 export $(grep -E '^DIRECT_URL=' .env.production.local | xargs)
@@ -185,14 +190,12 @@ Provar na máquina, de fora do container:
 curl -s http://localhost:3001/api/health
 curl -s "http://localhost:3001/api/health?db=1"     # database: ok
 
-# com o portão de senha, a leitura de agendamentos exige cookie:
-curl -s -c /tmp/cookies.txt -X POST http://localhost:3001/api/acesso \
-  -H 'content-type: application/json' -d '{"senha":"<ACCESS_PASSWORD>"}'
-curl -s -b /tmp/cookies.txt "http://localhost:3001/api/agendamentos?sala=Sala%20Azul&data=<AAAA-MM-DD>"
+# acesso aberto: a leitura de agendamentos não exige cookie
+curl -s "http://localhost:3001/api/agendamentos?sala=Sala%20Azul&data=<AAAA-MM-DD>"
 ```
 
-Sem o cookie, `/api/agendamentos` responde **401** e `/grade` redireciona para
-`/entrar` — é o comportamento esperado, não um defeito.
+O acesso é aberto desde o hotfix que removeu o portão de senha: `/` responde 200 e
+`/entrar` não existe mais (404).
 
 Provar **de outro computador do mesmo Wi-Fi/redeswitch**: abrir
 `http://<IP>:3001/grade` no navegador. Se não carregar, é o firewall — liberar a porta
@@ -233,18 +236,17 @@ vercel login                              # conta e vinculação são suas
 vercel link
 vercel env add DATABASE_URL production    # string POOLED do Neon (host -pooler)
 vercel env add DATABASE_URL preview
-vercel env add ACCESS_PASSWORD production
-vercel env add ACCESS_PASSWORD preview
 vercel --prod                             # publica ESTE diretório e devolve a URL
 ```
 
 `vercel --prod` pela CLI sobe os arquivos locais, não o GitHub: não depende de push
 nem do branch remoto. É o caminho certo agora que `main` local (`c56df25`) carrega o
 preparo — importar o repositório pelo painel construiria o remoto, que ainda não tem
-portão nem fuso explícito enquanto este merge não for enviado.
+fuso explícito enquanto este merge não for enviado.
 
-Variáveis em **Production e Preview** (preview sem senha vira URL pública da agenda):
-`DATABASE_URL` (pooled) e `ACCESS_PASSWORD`. `DIRECT_URL` não vai para a Vercel — as
+Variáveis em **Production e Preview**: `DATABASE_URL` (pooled). `ACCESS_PASSWORD` não
+existe mais (portão removido pelo hotfix; se ainda estiver no projeto da Vercel, pode
+ser apagada com `vercel env rm ACCESS_PASSWORD`). `DIRECT_URL` não vai para a Vercel — as
 migrations continuam sendo aplicadas da sua máquina, como no Passo 0.
 
 Três ressalvas honestas antes de prometer esta URL ao grupo:
@@ -274,20 +276,18 @@ docker inspect agenda-reuniao-neon-app-1 --format '{{.Config.Image}}'   # tag = 
 # 2. banco de pé e contrato aplicado
 curl -s "http://localhost:3001/api/health?db=1"                          # database: ok
 
-# 3. portão de senha: fechado sem cookie, aberto com ele
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3001/api/agendamentos   # 401
-curl -s -c /tmp/cookies.txt -X POST http://localhost:3001/api/acesso \
-  -H 'content-type: application/json' -d '{"senha":"<ACCESS_PASSWORD>"}'          # {"ok":true}
-curl -s -b /tmp/cookies.txt -o /dev/null -w '%{http_code}\n' http://localhost:3001/  # 200
+# 3. acesso aberto: páginas e API respondem sem cookie
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3001/api/agendamentos   # 200
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3001/                    # 200
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3001/entrar              # 404
 
 # 4. ciclo completo de escrita, com limpeza
 #    criar um "TESTE - <data>" pela UI na URL real, ler na grade, cancelar e conferir que sumiu
 ```
 
-A senha vai **junto com a URL** para o grupo, por um canal que não seja a própria
-agenda. Uma senha só, sem identidade por usuário: quem tem a senha cria e cancela
-reservas em nome de qualquer departamento. Isso é aceito para a validação da #29,
-não é controle de acesso por pessoa.
+O acesso é aberto desde o hotfix que removeu o portão de senha: não há mais login
+compartilhado nem identidade por usuário — qualquer pessoa com a URL cria e cancela
+reservas em nome de qualquer departamento. Isso é aceito para a validação da #29.
 
 Depois: rodar **sozinho** os cenários C1 a C6 na URL real (ensaio do coordenador),
 limpar as reservas `TESTE - ` e só então preencher o bloco **Endereço da aplicação** em
@@ -302,9 +302,10 @@ local e serve para desenvolvimento; os colaboradores testam o container de produ
 
 Cada bloco abaixo é autossuficiente; rode na ordem e pare no primeiro que falhar.
 
-**1. Publicar o código corrigido** (`main` local `c56df25` já traz o PR #57, o fuso, o
-portão de senha, a correção do slot e os PRs #58/#59. O remoto **não** tem o preparo:
-não importe o repositório pelo painel da Vercel antes de enviar este merge):
+**1. Publicar o código corrigido** (`main` local `c56df25` já traz o PR #57, o fuso,
+a correção do slot e os PRs #58/#59; o portão de senha daquele merge foi removido
+depois por hotfix. O remoto **não** tinha o preparo: não importe o repositório pelo
+painel da Vercel antes de enviar este merge):
 
 ```bash
 git checkout main && git rev-parse --short HEAD    # esperado: c56df25
@@ -316,10 +317,8 @@ git checkout main && git rev-parse --short HEAD    # esperado: c56df25
 cp .env.production.example .env.production.local && notepad .env.production.local
 ```
 
-Preencher `DATABASE_URL` (host com `-pooler`), `DIRECT_URL` (sem `-pooler`) e
-`ACCESS_PASSWORD` (senha do grupo) com os valores reais. `APP_PORT=3001`, `TAG` pode
-ficar `latest` (o item 4 sobrescreve). Sem `ACCESS_PASSWORD` o `docker compose up`
-falha com mensagem explícita — é proposital, para não publicar uma agenda fechada.
+Preencher `DATABASE_URL` (host com `-pooler`) e `DIRECT_URL` (sem `-pooler`) com os
+valores reais. `APP_PORT=3001`, `TAG` pode ficar `latest` (o item 4 sobrescreve).
 
 **3. Conferir o banco de destino** (leitura pura — hoje já está `ca204f28…`, *match*):
 
@@ -345,7 +344,7 @@ Esperado: `"status":"ok"` e `"database":"ok"`. Se `database` der `error` com `EA
 logo após a máquina acordar, reiniciar o container (`docker restart agenda-reuniao-neon-app-1`)
 — o healthcheck de liveness não consulta o banco e esconde essa falha.
 
-O health não exige senha; o resto da aplicação sim. Conferir o portão com os três
+O acesso é aberto (o portão de senha foi removido por hotfix). Conferir os três
 `curl` do **Passo 2** antes de distribuir a URL.
 
 **6. Descobrir a URL que os outros veem:**
@@ -372,7 +371,7 @@ notepad validacao/testes-usuarios-reais.md
 
 Substituir `<a preencher>` no bloco **Endereço da aplicação**.
 
-**9. Ensaio do coordenador, sozinho, antes de convidar o grupo:** entrar em `/entrar`
-com a senha do grupo, rodar C1 a C6 na URL real e limpar as reservas `TESTE - ` que o
-ensaio criar. Só então enviar URL **e senha** aos colaboradores.
+**9. Ensaio do coordenador, sozinho, antes de convidar o grupo:** abrir a URL direto
+(sem login), rodar C1 a C6 na URL real e limpar as reservas `TESTE - ` que o
+ensaio criar. Só então enviar a URL aos colaboradores.
 
