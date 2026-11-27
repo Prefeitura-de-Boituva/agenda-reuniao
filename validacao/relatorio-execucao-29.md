@@ -19,24 +19,21 @@ a conta, o plano e o domínio ficam com o coordenador.
    `8cd4e35`, anterior ao PR #57 e a `9e6998a`. Publicada assim, o C1 reproduz o bug.
 2. Criar o `.env.production.local` (ainda não existe em nenhum worktree — a
    `DATABASE_URL` do container atual foi injetada na mão, então um novo `up` sem ela quebra).
-   Preencher também a `ACCESS_PASSWORD`: a aplicação agora tem portão de senha e, em
-   produção, sem essa variável o acesso fica **fechado**.
+   ~~Preencher também a `ACCESS_PASSWORD`~~ — o portão de senha foi **removido**
+   por hotfix; o acesso é aberto, a variável não existe mais.
 3. Aplicar as migrations no destino antes do deploy (o container não roda migration).
 4. Provar que está de pé antes de convidar alguém:
 
    ```bash
-   curl -s <URL>/api/health            # liveness (público, não exige senha)
+   curl -s <URL>/api/health            # liveness (público)
    curl -s "<URL>/api/health?db=1"     # acorda o Neon e confirma leitura/escrita
 
-   # portão de senha: 401 sem cookie, 200 com ele
+   # acesso aberto: páginas e API respondem sem cookie
    curl -s -o /dev/null -w '%{http_code}\n' <URL>/api/agendamentos
-   curl -s -c /tmp/cookies.txt -X POST <URL>/api/acesso \
-     -H 'content-type: application/json' -d '{"senha":"<ACCESS_PASSWORD>"}'
-   curl -s -b /tmp/cookies.txt -o /dev/null -w '%{http_code}\n' <URL>/
+   curl -s -o /dev/null -w '%{http_code}\n' <URL>/
    ```
 
-5. Colar a URL em `testes-usuarios-reais.md`, no bloco **Endereço da aplicação**, e
-   combinar a senha com o grupo por fora da agenda.
+5. Colar a URL em `testes-usuarios-reais.md`, no bloco **Endereço da aplicação**.
 6. **Ensaio do coordenador**: executar sozinho os cenários C1 a C6 na URL real. Se alguma
    mensagem esperada não aparecer exatamente como no roteiro, corrigir o roteiro — não o
    código — antes da sessão.

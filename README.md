@@ -14,8 +14,8 @@ horário, e cancela a própria reserva com a senha que definiu ao agendar.
 - **Cancelar** só com a senha informada na criação. A senha vira hash scrypt no
   banco e nunca volta em resposta da API. Reservas antigas, criadas antes desse
   modelo, continuam canceláveis pelo departamento.
-- **Acesso:** uma senha compartilhada do grupo (`ACCESS_PASSWORD`), digitada em
-  `/entrar`. Não há login por pessoa nem trilha de quem fez cada ação.
+- **Acesso:** aberto — qualquer pessoa abre a agenda direto, sem login. Não há
+  trilha de quem fez cada ação.
 - **Retenção:** a rota interna `/api/internal/retencao-agendamentos` reporta o
   que passou de oito meses da data da reunião. Ela roda sempre em dry-run;
   apagar exige mudança explícita no código.
@@ -84,7 +84,6 @@ confirme antes a quem pertence o processo da porta.
 | ----------------- | --------------------------------------------- |
 | `DATABASE_URL`    | conexão da aplicação (Neon, string pooled)    |
 | `DIRECT_URL`      | conexão da CLI do Prisma, para migrations     |
-| `ACCESS_PASSWORD` | senha do grupo cobrada em `/entrar`           |
 | `CRON_SECRET`     | protege `/api/internal/retencao-agendamentos` |
 
 Os `.env*` locais estão no `.gitignore`. Nunca commite credenciais.
@@ -94,8 +93,7 @@ Os `.env*` locais estão no `.gitignore`. Nunca commite credenciais.
 O app roda na Vercel (região `iad1`, perto do Neon em `us-east-1`) e usa um
 projeto Neon separado do de desenvolvimento. As migrations não rodam no build:
 aplique-as da sua máquina (`npm run db:migrate`) antes do deploy e confirme com
-`npm run db:verify`. Sem `ACCESS_PASSWORD` o portão fecha — páginas
-redirecionam para `/entrar` e a API responde 401. Para rodar a imagem local, o
+`npm run db:verify`. Para rodar a imagem local, o
 `docker-compose.prod.yml` sobe a aplicação na porta 3001.
 
 ## Scripts
